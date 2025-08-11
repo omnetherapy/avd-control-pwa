@@ -21,15 +21,13 @@ module.exports = async function (context, req) {
 
     context.res = {
       status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: { success: true, message: `VM ${vmName} start initiated successfully` }
+      body: { message: "VM started successfully" }
     };
   } catch (err) {
-    context.log("Error starting VM:", err);
+    context.log("Error:", err.message || err);
     context.res = {
       status: 500,
-      headers: { "Content-Type": "application/json" },
-      body: { success: false, error: err.message || "Failed to start VM" }
+      body: { error: "Failed to start VM", details: err.message || err }
     };
   }
 };

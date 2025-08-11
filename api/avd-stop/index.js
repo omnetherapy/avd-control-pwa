@@ -13,7 +13,7 @@ module.exports = async function (context, req) {
     const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
     const tokenResponse = await credential.getToken("https://management.azure.com/.default");
 
-    const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}/powerOff?api-version=2023-09-01`;
+    const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}/deallocate?api-version=2023-09-01`;
 
     await axios.post(url, null, {
       headers: { Authorization: `Bearer ${tokenResponse.token}` }
@@ -21,15 +21,13 @@ module.exports = async function (context, req) {
 
     context.res = {
       status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: { success: true, message: `VM ${vmName} stop initiated successfully` }
+      body: { message: "VM stopped successfully" }
     };
   } catch (err) {
-    context.log("Error stopping VM:", err);
+    context.log("Error:", err.message || err);
     context.res = {
       status: 500,
-      headers: { "Content-Type": "application/json" },
-      body: { success: false, error: err.message || "Failed to stop VM" }
+      body: { error: "Failed to stop VM", details: err.message || err }
     };
   }
 };
