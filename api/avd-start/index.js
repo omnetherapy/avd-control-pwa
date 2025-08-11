@@ -1,14 +1,27 @@
-const fetch = require("node-fetch");
-const getAccessToken = require("../shared/getToken"); // if you reuse
+const { ClientSecretCredential } = require("@azure/identity");
+const axios = require("axios");
 
-module.exports = async function (context) {
-    const token = await getAccessToken();
-    const url = `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${process.env.VM_NAME}/start?api-version=2023-03-01`;
+module.exports = async function (context, req) {
+  try {
+    const tenantId = process.env.TENANT_ID;
+    const clientId = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
+    const subscriptionId = process.env.SUBSCRIPTION_ID;
+    const resourceGroup = process.env.RESOURCE_GROUP;
+    const vmName = process.env.VM_NAME;
 
-    const res = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+    const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+
+    const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}/start?api-version=2023-09-01`;
+
+    await axios.post(url, {}, {
+      headers: { Authorization: `Bearer ${tokenResponse.token}` }
     });
 
-    context.res = { status: res.status, body: { message: "VM start requested" } };
+    context.res = { status: 200, body: `VM ${vmName} start initiated.` };
+  } catch (err) {
+    context.log("Error starting VM:", err);
+    context.res = { status: 500, body: "Failed to start VM" };
+  }
 };
