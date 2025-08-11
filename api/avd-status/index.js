@@ -19,12 +19,22 @@ module.exports = async function (context, req) {
       headers: { Authorization: `Bearer ${tokenResponse.token}` }
     });
 
+    // Extract status info
+    const statuses = res.data.statuses || [];
+    const powerState = statuses.find(s => s.code && s.code.startsWith("PowerState/"));
+    const state = powerState ? powerState.displayStatus : "Unknown";
+
     context.res = {
       status: 200,
-      body: res.data
+      headers: { "Content-Type": "application/json" },
+      body: { success: true, message: `VM is currently: ${state}`, state }
     };
   } catch (err) {
-    context.log("Error:", err);
-    context.res = { status: 500, body: "Internal Server Error" };
+    context.log("Error fetching VM status:", err);
+    context.res = {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+      body: { success: false, error: err.message || "Failed to retrieve VM status" }
+    };
   }
 };

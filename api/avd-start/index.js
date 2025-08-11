@@ -15,13 +15,21 @@ module.exports = async function (context, req) {
 
     const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}/start?api-version=2023-09-01`;
 
-    await axios.post(url, {}, {
+    await axios.post(url, null, {
       headers: { Authorization: `Bearer ${tokenResponse.token}` }
     });
 
-    context.res = { status: 200, body: `VM ${vmName} start initiated.` };
+    context.res = {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: { success: true, message: `VM ${vmName} start initiated successfully` }
+    };
   } catch (err) {
     context.log("Error starting VM:", err);
-    context.res = { status: 500, body: "Failed to start VM" };
+    context.res = {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+      body: { success: false, error: err.message || "Failed to start VM" }
+    };
   }
 };
