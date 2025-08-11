@@ -1,18 +1,14 @@
-const { DefaultAzureCredential } = require("@azure/identity");
-const { ComputeManagementClient } = require("@azure/arm-compute");
+const fetch = require("node-fetch");
+const getAccessToken = require("../shared/getToken");
 
-module.exports = async function (context, req) {
-    const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-    const resourceGroupName = process.env.AVD_RESOURCE_GROUP;
-    const vmName = process.env.AVD_VM_NAME;
+module.exports = async function (context) {
+    const token = await getAccessToken();
+    const url = `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${process.env.VM_NAME}/powerOff?api-version=2023-03-01`;
 
-    try {
-        const credential = new DefaultAzureCredential();
-        const client = new ComputeManagementClient(credential, subscriptionId);
-        await client.virtualMachines.beginDeallocateAndWait(resourceGroupName, vmName);
-        
-        context.res = { body: { message: "AVD stopped successfully" } };
-    } catch (err) {
-        context.res = { status: 500, body: { error: err.message } };
-    }
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+
+    context.res = { status: res.status, body: { message: "VM stop requested" } };
 };
