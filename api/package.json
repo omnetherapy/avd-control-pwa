@@ -4,7 +4,13 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@azure/identity": "^3.2.0",
-    "axios": "^1.7.0"
-  }
+    "@azure/identity": "^4.11.1",
+    "axios": "^1.11.0"
+  },
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": ""
 }
