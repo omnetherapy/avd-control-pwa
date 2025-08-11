@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@azure/identity": "^4.11.1",
+    "axios": "^1.11.0"
+  }
+}
