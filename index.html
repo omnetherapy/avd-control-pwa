@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AVD Control</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0078d4" />
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 1rem; }
+        button { margin: 0.5rem 0; padding: 0.5rem 1rem; font-size: 1rem; }
+        #status { margin-top: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Azure Virtual Desktop Control</h1>
+    <button onclick="checkStatus()">Check Status</button>
+    <button onclick="startAVD()">Start AVD</button>
+    <button onclick="stopAVD()">Stop AVD</button>
+    <div id="status"></div>
+
+    <script>
+        async function checkStatus() {
+            const res = await fetch('/api/avd-status');
+            const data = await res.json();
+            document.getElementById('status').textContent = 'Status: ' + data.status;
+        }
+
+        async function startAVD() {
+            const res = await fetch('/api/avd-start', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('status').textContent = data.message;
+        }
+
+        async function stopAVD() {
+            const res = await fetch('/api/avd-stop', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('status').textContent = data.message;
+        }
+    </script>
+</body>
+</html>
