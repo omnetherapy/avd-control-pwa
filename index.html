@@ -2,23 +2,40 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Azure VM Control</title>
+  <title>Azure VM Control Panel</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #vmStatus { font-size: 18px; margin: 10px 0; font-weight: bold; }
-    button { padding: 8px 16px; margin-right: 10px; cursor: pointer; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
+    h1 { margin-bottom: 5px; }
+    #vmStatus { font-size: 20px; font-weight: bold; padding: 5px 10px; border-radius: 6px; display: inline-block; }
+    #lastUpdated { font-size: 14px; color: #666; margin-top: 5px; }
+    button { padding: 10px 20px; margin: 10px 10px 0 0; cursor: pointer; font-size: 16px; border: none; border-radius: 5px; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .green { background: #d4edda; color: #155724; }
+    .red { background: #f8d7da; color: #721c24; }
+    .orange { background: #fff3cd; color: #856404; }
+    .gray { background: #e2e3e5; color: #383d41; }
+    .btn-green { background: #28a745; color: white; }
+    .btn-red { background: #dc3545; color: white; }
   </style>
 </head>
 <body>
   <h1>Azure VM Control</h1>
-  <p id="vmStatus">Checking VM status...</p>
-  <button id="startBtn" onclick="startAvd()">Start VM</button>
-  <button id="stopBtn" onclick="stopAvd()">Stop VM</button>
+  <div id="vmStatus" class="gray">Checking VM status...</div>
+  <div id="lastUpdated">Last updated: --:--:--</div>
+  <div>
+    <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
+    <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
+  </div>
 
   <script>
-    let pollInterval = 10000; // default 10 seconds
+    let pollInterval = 10000;
     let pollTimer;
+
+    function updateTimestamp() {
+      const now = new Date();
+      document.getElementById("lastUpdated").innerText =
+        `Last updated: ${now.toLocaleTimeString()}`;
+    }
 
     async function callApi(endpoint) {
       try {
@@ -30,10 +47,11 @@
       }
     }
 
-    function setStatus(message, color) {
+    function setStatus(message, colorClass) {
       const statusEl = document.getElementById("vmStatus");
       statusEl.innerText = message;
-      statusEl.style.color = color;
+      statusEl.className = colorClass;
+      updateTimestamp();
     }
 
     function scheduleNextPoll(ms) {
@@ -50,30 +68,29 @@
       if (data.success) {
         const state = data.state?.toLowerCase() || "";
 
-        // Set status colors
         if (state.includes("running")) {
           setStatus(data.message, "green");
           startBtn.disabled = true;
           stopBtn.disabled = false;
-          scheduleNextPoll(10000); // slow down polling
+          scheduleNextPoll(10000);
         }
         else if (state.includes("deallocated")) {
           setStatus(data.message, "red");
           startBtn.disabled = false;
           stopBtn.disabled = true;
-          scheduleNextPoll(10000); // slow down polling
+          scheduleNextPoll(10000);
         }
         else {
           setStatus(data.message, "orange");
           startBtn.disabled = true;
           stopBtn.disabled = true;
-          scheduleNextPoll(3000); // check faster during transitions
+          scheduleNextPoll(3000);
         }
       } else {
         setStatus(`Error: ${data.error}`, "gray");
         startBtn.disabled = false;
         stopBtn.disabled = false;
-        scheduleNextPoll(15000); // slow retry if error
+        scheduleNextPoll(15000);
       }
     }
 
@@ -82,7 +99,7 @@
       document.getElementById("startBtn").disabled = true;
       document.getElementById("stopBtn").disabled = true;
       await callApi("avd-start");
-      scheduleNextPoll(3000); // start fast polling immediately
+      scheduleNextPoll(3000);
     }
 
     async function stopAvd() {
@@ -90,10 +107,13 @@
       document.getElementById("startBtn").disabled = true;
       document.getElementById("stopBtn").disabled = true;
       await callApi("avd-stop");
-      scheduleNextPoll(3000); // start fast polling immediately
+      scheduleNextPoll(3000);
     }
 
-    // Kick off
+    // Live clock updates every second
+    setInterval(updateTimestamp, 1000);
+
+    // Start the first check
     updateStatus();
   </script>
 </body>
