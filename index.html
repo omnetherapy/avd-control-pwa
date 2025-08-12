@@ -2,34 +2,99 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>AVD Control</title>
+  <title>Azure VM Control</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #vmStatus { font-size: 18px; margin: 10px 0; font-weight: bold; }
+    button { padding: 8px 16px; margin-right: 10px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
 </head>
 <body>
-  <h1>AVD Control Panel</h1>
-
-  <button onclick="startAvd()">Start AVD</button>
-  <button onclick="stopAvd()">Stop AVD</button>
-  <button onclick="checkAvdStatus()">Check Status</button>
+  <h1>Azure VM Control</h1>
+  <p id="vmStatus">Checking VM status...</p>
+  <button id="startBtn" onclick="startAvd()">Start VM</button>
+  <button id="stopBtn" onclick="stopAvd()">Stop VM</button>
 
   <script>
+    let pollInterval = 10000; // default 10 seconds
+    let pollTimer;
+
     async function callApi(endpoint) {
       try {
         const res = await fetch(`/api/${endpoint}`);
-        const data = await res.json();
-        if (data.success) {
-          alert(data.message);
-        } else {
-          alert(`Error: ${data.error || "Unknown error"}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
       } catch (err) {
-        console.error(`Failed to call ${endpoint} API:`, err);
-        alert(`Unexpected error: ${err.message}`);
+        return { success: false, error: err.message };
       }
     }
 
-    function startAvd() { callApi("avd-start"); }
-    function stopAvd() { callApi("avd-stop"); }
-    function checkAvdStatus() { callApi("avd-status"); }
+    function setStatus(message, color) {
+      const statusEl = document.getElementById("vmStatus");
+      statusEl.innerText = message;
+      statusEl.style.color = color;
+    }
+
+    function scheduleNextPoll(ms) {
+      clearTimeout(pollTimer);
+      pollInterval = ms;
+      pollTimer = setTimeout(updateStatus, ms);
+    }
+
+    async function updateStatus() {
+      const data = await callApi("avd-status");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+
+      if (data.success) {
+        const state = data.state?.toLowerCase() || "";
+
+        // Set status colors
+        if (state.includes("running")) {
+          setStatus(data.message, "green");
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          scheduleNextPoll(10000); // slow down polling
+        }
+        else if (state.includes("deallocated")) {
+          setStatus(data.message, "red");
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          scheduleNextPoll(10000); // slow down polling
+        }
+        else {
+          setStatus(data.message, "orange");
+          startBtn.disabled = true;
+          stopBtn.disabled = true;
+          scheduleNextPoll(3000); // check faster during transitions
+        }
+      } else {
+        setStatus(`Error: ${data.error}`, "gray");
+        startBtn.disabled = false;
+        stopBtn.disabled = false;
+        scheduleNextPoll(15000); // slow retry if error
+      }
+    }
+
+    async function startAvd() {
+      setStatus("Starting VM...", "orange");
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = true;
+      await callApi("avd-start");
+      scheduleNextPoll(3000); // start fast polling immediately
+    }
+
+    async function stopAvd() {
+      setStatus("Stopping VM...", "orange");
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = true;
+      await callApi("avd-stop");
+      scheduleNextPoll(3000); // start fast polling immediately
+    }
+
+    // Kick off
+    updateStatus();
   </script>
 </body>
 </html>
