@@ -1,32 +1,12 @@
 const { ClientSecretCredential } = require("@azure/identity");
 const axios = require("axios");
-
-function getClientPrincipal(req) {
-  const hdr = req.headers["x-ms-client-principal"];
-  if (!hdr) return null;
-  try {
-    const json = Buffer.from(hdr, "base64").toString("utf8");
-    const p = JSON.parse(json);
-    p.userRoles = p.userRoles || [];
-    return p;
-  } catch {
-    return null;
-  }
-}
+const { requireRole } = require("../utils");
 
 module.exports = async function (context, req) {
+  const principal = requireRole(context, req, ["avd-operator", "avd-admin"]);
+  if (!principal) return;
+  
   try {
-
-    const principal = getClientPrincipal(req);
-    if (!principal || !principal.userRoles.some(r => r === "starter" || r === "admin")) {
-      context.res = {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-        body: { success: false, error: "Forbidden: requires role 'starter' or 'admin'." }
-      };
-      return;
-    }
-    
     const tenantId = process.env.TENANT_ID;
     const clientId = process.env.CLIENT_ID;
     const clientSecret = process.env.CLIENT_SECRET;
