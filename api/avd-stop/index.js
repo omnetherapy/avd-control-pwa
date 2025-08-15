@@ -14,14 +14,16 @@ function getClientPrincipal(req) {
 
 module.exports = async function (context, req) {
   try {
+
     const principal = getClientPrincipal(req);
-    
-  if (!principal || !principal.userRoles.includes("admin")) {
-    context.res = {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-      body: { success: false, error: "Forbidden: requires role 'admin'." }
-    };
+    if (!principal || !principal.userRoles.some(r => r === "admin")) {
+      context.res = {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+        body: { success: false, error: "Forbidden: requires role 'admin'." }
+      };
+      return;
+    }
     
     return;
   }
