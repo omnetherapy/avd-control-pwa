@@ -23,33 +23,19 @@
   <div id="vmStatus" class="gray">Checking VM status...</div>
   <div id="lastUpdated">Last updated: --:--:--</div>
 
-  <div>
-    <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
-    <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
-  </div>
-
   <nav style="margin-top: 10px;">
     <a id="loginLink" href="/.auth/login/aad?post_login_redirect_uri=/">Login</a>
     <a id="logoutLink" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a>
   </nav>
 
+  <div id="controls" style="display: none;">
+    <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
+    <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
+  </div>
+
   <script>
     let pollInterval = 10000;
     let pollTimer;
-
-    async function toggleAuthLinks() {
-      try {
-        const res = await fetch('/.auth/me');
-        const data = await res.json();
-        const loggedIn = !!data.clientPrincipal;
-
-        document.getElementById('loginLink').style.display = loggedIn ? 'none' : 'inline';
-        document.getElementById('logoutLink').style.display = loggedIn ? 'inline' : 'none';
-      } catch {
-        document.getElementById('loginLink').style.display = 'inline';
-        document.getElementById('logoutLink').style.display = 'none';
-      }
-    }
 
     function updateTimestamp() {
       const now = new Date();
@@ -86,7 +72,7 @@
       const stopBtn = document.getElementById("stopBtn");
 
       if (data.success) {
-        const state = (data.powerState || "").toLowerCase();
+        const state = data.powerState?.toLowerCase() || "";
 
         if (state.includes("running")) {
           setStatus(data.powerState, "green");
@@ -130,12 +116,30 @@
       scheduleNextPoll(3000);
     }
 
-    // Live clock updates every second
-    setInterval(updateTimestamp, 1000);
+    async function toggleAuthLinks() {
+      try {
+        const res = await fetch('/.auth/me');
+        const data = await res.json();
+        const loggedIn = !!data.clientPrincipal;
+        const roles = data.clientPrincipal?.userRoles || [];
 
-    // Start the first check
-    toggleAuthLinks();
+        document.getElementById('loginLink').style.display = loggedIn ? 'none' : 'inline';
+        document.getElementById('logoutLink').style.display = loggedIn ? 'inline' : 'none';
+
+        // Only show controls for AVD_Administrators
+        document.getElementById('controls').style.display =
+          (loggedIn && roles.includes("AVD_Administrators")) ? 'block' : 'none';
+
+      } catch {
+        document.getElementById('loginLink').style.display = 'inline';
+        document.getElementById('logoutLink').style.display = 'none';
+        document.getElementById('controls').style.display = 'none';
+      }
+    }
+
+    setInterval(updateTimestamp, 1000);
     updateStatus();
+    toggleAuthLinks();
   </script>
 </body>
 </html>
