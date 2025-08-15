@@ -1,3 +1,17 @@
+function getClientPrincipal(req) {
+  const header = req.headers["x-ms-client-principal"];
+  if (!header) return null;
+  try {
+    const decoded = Buffer.from(header, "base64").toString("utf8");
+    const p = JSON.parse(decoded);
+    p.userRoles = p.userRoles || [];
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+
 const { ClientSecretCredential } = require("@azure/identity");
 const axios = require("axios");
 
