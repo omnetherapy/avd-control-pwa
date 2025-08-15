@@ -16,6 +16,7 @@
     .gray { background: #e2e3e5; color: #383d41; }
     .btn-green { background: #28a745; color: white; }
     .btn-red { background: #dc3545; color: white; }
+    nav a { margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -24,32 +25,47 @@
   <div id="lastUpdated">Last updated: --:--:--</div>
 
   <nav style="margin-top: 10px;">
+    <span id="userInfo"></span>
     <a id="loginLink" href="/.auth/login/aad?post_login_redirect_uri=/">Login</a>
     <a id="logoutLink" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a>
   </nav>
 
-  <div id="controls" style="display: none;">
+  <div id="controls" style="display:none;">
     <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
     <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
   </div>
 
   <script>
-    let pollInterval = 10000;
+    // Replace with your Entra group Object IDs (safe to expose)
+    const AVD_USERS_GROUP_ID = "570fe125-3503-4277-8757-65f55a9ba35f";
+    const AVD_ADMINS_GROUP_ID = "08160b89-cbf1-4e7b-bb51-f243c61e9cd0";
+
     let pollTimer;
 
     function updateTimestamp() {
       const now = new Date();
-      document.getElementById("lastUpdated").innerText =
-        `Last updated: ${now.toLocaleTimeString()}`;
+      document.getElementById("lastUpdated").innerText = `Last updated: ${now.toLocaleTimeString()}`;
     }
 
-    async function callApi(endpoint) {
+    async function safeJson(res) {
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return res.json();
+      return null; // Avoid "<!DOCTYPE" parse errors
+    }
+
+    async function callApi(endpoint, method = "GET") {
       try {
-        const res = await fetch(`/api/${endpoint}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        const res = await fetch(`/api/${endpoint}`, { method });
+        if (!res.ok) {
+          // If SWA redirected to login, res is likely HTML; return a consistent error
+          const data = await safeJson(res);
+          const details = data && !data.success ? (data.error || JSON.stringify(data)) : `HTTP ${res.status}`;
+          throw new Error(details);
+        }
+        const data = await res.json();
+        return data;
       } catch (err) {
-        return { success: false, error: err.message };
+        return { success: false, error: err.message || "Request failed" };
       }
     }
 
@@ -62,7 +78,6 @@
 
     function scheduleNextPoll(ms) {
       clearTimeout(pollTimer);
-      pollInterval = ms;
       pollTimer = setTimeout(updateStatus, ms);
     }
 
@@ -72,21 +87,19 @@
       const stopBtn = document.getElementById("stopBtn");
 
       if (data.success) {
-        const state = data.powerState?.toLowerCase() || "";
+        const state = (data.powerState || "").toLowerCase();
 
         if (state.includes("running")) {
           setStatus(data.powerState, "green");
           startBtn.disabled = true;
           stopBtn.disabled = false;
           scheduleNextPoll(10000);
-        }
-        else if (state.includes("deallocated")) {
+        } else if (state.includes("deallocated")) {
           setStatus(data.powerState, "red");
           startBtn.disabled = false;
           stopBtn.disabled = true;
           scheduleNextPoll(10000);
-        }
-        else {
+        } else {
           setStatus(data.powerState, "orange");
           startBtn.disabled = true;
           stopBtn.disabled = true;
@@ -94,8 +107,6 @@
         }
       } else {
         setStatus(`Error: ${data.error}`, "gray");
-        startBtn.disabled = false;
-        stopBtn.disabled = false;
         scheduleNextPoll(15000);
       }
     }
@@ -104,7 +115,7 @@
       setStatus("Starting VM...", "orange");
       document.getElementById("startBtn").disabled = true;
       document.getElementById("stopBtn").disabled = true;
-      await callApi("avd-start");
+      await callApi("avd-start", "POST");
       scheduleNextPoll(3000);
     }
 
@@ -112,34 +123,70 @@
       setStatus("Stopping VM...", "orange");
       document.getElementById("startBtn").disabled = true;
       document.getElementById("stopBtn").disabled = true;
-      await callApi("avd-stop");
+      const res = await callApi("avd-stop", "POST");
+      if (!res.success && /403/.test(res.error)) {
+        alert("You are signed in but not allowed to stop the VM.");
+      }
       scheduleNextPoll(3000);
+    }
+
+    function groupsFromAuthMe(meJson) {
+      const set = new Set();
+      const claims = meJson?.clientPrincipal?.claims || [];
+      for (const c of claims) {
+        if (c?.typ === "groups" || c?.typ === "http://schemas.microsoft.com/ws/2008/06/identity/claims/groups") {
+          set.add(c.val);
+        }
+      }
+      return set;
     }
 
     async function toggleAuthLinks() {
       try {
-        const res = await fetch('/.auth/me');
-        const data = await res.json();
-        const loggedIn = !!data.clientPrincipal;
-        const roles = data.clientPrincipal?.userRoles || [];
+        const res = await fetch("/.auth/me", { headers: { "Cache-Control": "no-store" } });
+        const data = await safeJson(res);
+        const principal = data?.clientPrincipal || null;
 
-        document.getElementById('loginLink').style.display = loggedIn ? 'none' : 'inline';
-        document.getElementById('logoutLink').style.display = loggedIn ? 'inline' : 'none';
+        const loginLink = document.getElementById("loginLink");
+        const logoutLink = document.getElementById("logoutLink");
+        const userInfo = document.getElementById("userInfo");
+        const controls = document.getElementById("controls");
+        const stopBtn = document.getElementById("stopBtn");
 
-        // Only show controls for AVD_Administrators
-        document.getElementById('controls').style.display =
-          (loggedIn && roles.includes("AVD_Administrators")) ? 'block' : 'none';
+        if (!principal) {
+          userInfo.textContent = "";
+          loginLink.style.display = "inline";
+          logoutLink.style.display = "none";
+          controls.style.display = "none";
+          return;
+        }
+
+        userInfo.textContent = `Signed in as ${principal.userDetails || principal.identityProvider}`;
+        loginLink.style.display = "none";
+        logoutLink.style.display = "inline";
+
+        // Show controls for all authenticated users (API still enforces)
+        controls.style.display = "block";
+
+        // Optionally hide Stop for non-admins when group claim present
+        const gs = groupsFromAuthMe(data);
+        const isAdmin = gs.has(AVD_ADMINS_GROUP_ID);
+        stopBtn.style.display = isAdmin ? "inline-block" : "none";
 
       } catch {
-        document.getElementById('loginLink').style.display = 'inline';
-        document.getElementById('logoutLink').style.display = 'none';
-        document.getElementById('controls').style.display = 'none';
+        // If anything fails, show login
+        document.getElementById("loginLink").style.display = "inline";
+        document.getElementById("logoutLink").style.display = "none";
+        document.getElementById("controls").style.display = "none";
       }
     }
 
+    // Live clock
     setInterval(updateTimestamp, 1000);
-    updateStatus();
+
+    // Bootstrap
     toggleAuthLinks();
+    updateStatus();
   </script>
 </body>
 </html>
