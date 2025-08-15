@@ -1,157 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Azure VM Control Panel</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
-    h1 { margin-bottom: 5px; }
-    #vmStatus { font-size: 20px; font-weight: bold; padding: 5px 10px; border-radius: 6px; display: inline-block; }
-    #lastUpdated { font-size: 14px; color: #666; margin-top: 5px; }
-    button { padding: 10px 20px; margin: 10px 10px 0 0; cursor: pointer; font-size: 16px; border: none; border-radius: 5px; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .green { background: #d4edda; color: #155724; }
-    .red { background: #f8d7da; color: #721c24; }
-    .orange { background: #fff3cd; color: #856404; }
-    .gray { background: #e2e3e5; color: #383d41; }
-    .btn-green { background: #28a745; color: white; }
-    .btn-red { background: #dc3545; color: white; }
-    nav a { margin-right: 12px; }
-  </style>
-</head>
-<body>
-  <h1>Azure VM Control</h1>
-  <div id="vmStatus" class="gray">Checking VM status...</div>
-  <div id="lastUpdated">Last updated: --:--:--</div>
+<script>
+async function callApi(endpoint, method = "GET") {
+  try {
+    const res = await fetch(`/api/${endpoint}`, { method });
 
-  <nav style="margin-top: 10px;">
-    <a id="loginLink" href="/.auth/login/aad?post_login_redirect_uri=/">Login</a>
-    <a id="logoutLink" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a>
-    <span id="whoAmI" style="color:#555"></span>
-  </nav>
+    // Handle HTML vs JSON responses
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+    const data = isJson ? await res.json() : { error: "Unexpected response" };
 
-  <div id="controls" style="display:none;">
-    <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
-    <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
-  </div>
-
-  <script>
-    let pollInterval = 10000;
-    let pollTimer;
-
-    function updateTimestamp() {
-      const now = new Date();
-      document.getElementById("lastUpdated").innerText =
-        `Last updated: ${now.toLocaleTimeString()}`;
+    if (res.status === 401) {
+      // Not logged in — redirect to login
+      window.location.href = "/.auth/login/aad";
+      return;
     }
 
-    async function callApi(endpoint, method = "GET") {
-      try {
-        const res = await fetch(`/api/${endpoint}`, { method });
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          // If SWA redirected (401/403), you'll see HTML here.
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-        return data;
-      } catch (err) {
-        return { success: false, error: err.message };
-      }
+    if (res.status === 403) {
+      // Logged in but no group access
+      document.getElementById("output").innerHTML =
+        `<div style="color:red;font-weight:bold;">🚫 Access Denied</div>
+         <div>You do not have permission to use this feature.</div>`;
+      return;
     }
 
-    function setStatus(message, colorClass) {
-      const statusEl = document.getElementById("vmStatus");
-      statusEl.innerText = message;
-      statusEl.className = colorClass;
-      updateTimestamp();
+    if (!res.ok) {
+      throw new Error(data?.error || "Unknown API error");
     }
 
-    function scheduleNextPoll(ms) {
-      clearTimeout(pollTimer);
-      pollInterval = ms;
-      pollTimer = setTimeout(updateStatus, ms);
-    }
-
-    async function updateStatus() {
-      const data = await callApi("avd-status");
-      const startBtn = document.getElementById("startBtn");
-      const stopBtn = document.getElementById("stopBtn");
-
-      if (data.success) {
-        const state = (data.powerState || "").toLowerCase();
-        if (state.includes("running")) {
-          setStatus(data.powerState, "green");
-          startBtn.disabled = true;
-          stopBtn.disabled = false;
-          scheduleNextPoll(10000);
-        } else if (state.includes("deallocated")) {
-          setStatus(data.powerState, "red");
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-          scheduleNextPoll(10000);
-        } else {
-          setStatus(data.powerState, "orange");
-          startBtn.disabled = true;
-          stopBtn.disabled = true;
-          scheduleNextPoll(3000);
-        }
-      } else {
-        setStatus(`Error: ${data.error}`, "gray");
-        startBtn.disabled = false;
-        stopBtn.disabled = false;
-        scheduleNextPoll(15000);
-      }
-    }
-
-    async function startAvd() {
-      setStatus("Starting VM...", "orange");
-      document.getElementById("startBtn").disabled = true;
-      document.getElementById("stopBtn").disabled = true;
-      const data = await callApi("avd-start", "POST");
-      if (!data.success) alert(data.error || "Failed to start VM");
-      scheduleNextPoll(3000);
-    }
-
-    async function stopAvd() {
-      setStatus("Stopping VM...", "orange");
-      document.getElementById("startBtn").disabled = true;
-      document.getElementById("stopBtn").disabled = true;
-      const data = await callApi("avd-stop", "POST");
-      if (!data.success) {
-        if ((data.error || "").toLowerCase().includes("forbidden")) {
-          alert("You don't have permission to stop the VM.");
-        } else {
-          alert(data.error || "Failed to stop VM");
-        }
-      }
-      scheduleNextPoll(3000);
-    }
-
-    async function initAuthUi() {
-      try {
-        const res = await fetch("/.auth/me");
-        const json = await res.json();
-        const principal = json?.clientPrincipal || null;
-        const loggedIn = !!principal;
-        const who = document.getElementById("whoAmI");
-
-        document.getElementById("loginLink").style.display = loggedIn ? "none" : "inline";
-        document.getElementById("logoutLink").style.display = loggedIn ? "inline" : "none";
-        document.getElementById("controls").style.display = loggedIn ? "block" : "none";
-
-        who.textContent = loggedIn ? `Signed in as ${principal.userDetails}` : "";
-      } catch {
-        document.getElementById("loginLink").style.display = "inline";
-        document.getElementById("logoutLink").style.display = "none";
-        document.getElementById("controls").style.display = "none";
-      }
-    }
-
-    setInterval(updateTimestamp, 1000);
-    initAuthUi();
-    updateStatus();
-  </script>
-</body>
-</html>
+    return data;
+  } catch (err) {
+    document.getElementById("output").innerHTML =
+      `<div style="color:red;font-weight:bold;">⚠️ Error</div>
+       <div>${err.message}</div>`;
+  }
+}
+</script>
