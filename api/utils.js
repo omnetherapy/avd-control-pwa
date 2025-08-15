@@ -4,8 +4,8 @@ const axios = require("axios");
 
 // Replace with your Azure AD group Object IDs
 const GROUPS = {
-  USERS: "YOUR-AVD-USERS-GROUP-ID",
-  ADMINS: "YOUR-AVD-ADMINS-GROUP-ID"
+  USERS: "570fe125-3503-4277-8757-65f55a9ba35f",
+  ADMINS: "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"
 };
 
 // --- In-memory cache: { userId: { roles: [], expires: timestamp } }
