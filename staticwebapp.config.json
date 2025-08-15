@@ -1,1 +1,25 @@
-{"auth":{"rolesSource":"DEFAULT","identityProviders":{"azureActiveDirectory":{"registration":{"openIdIssuer":"https://login.microsoftonline.com/6df6f43e-3d04-4dcc-8210-7bb54b3cd141","clientIdSettingName":"AZURE_CLIENT_ID","clientSecretSettingName":"AZURE_CLIENT_SECRET_APP_SETTING_NAME"}}}},"routes":[{"route":"/*","allowedRoles":["authenticated"]}]}
+{
+  "routes": [
+    { "route": "/login", "redirect": "/.auth/login/aad" },
+    { "route": "/logout", "redirect": "/.auth/logout" },
+
+    // Lock the entire UI to your chosen roles
+    { "route": "/", "allowedRoles": ["starter", "admin"] },
+    { "route": "/index.html", "allowedRoles": ["starter", "admin"] },
+
+    // API protections
+    { "route": "/api/avd-status", "allowedRoles": ["starter", "admin"] },
+    { "route": "/api/avd-start",  "allowedRoles": ["starter", "admin"] },
+    { "route": "/api/avd-stop",   "allowedRoles": ["admin"] }
+  ],
+  "responseOverrides": {
+    "401": { "redirect": "/login", "statusCode": 302 }
+  },
+  "auth": {
+    "rolesSource": "DEFAULT"
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/.auth/*", "/*.css", "/*.js", "/assets/*"]
+  }
+}
