@@ -7,8 +7,8 @@ module.exports = async function (context, req) {
   try {
     // Allow AVD Users OR AVD Administrators
     await requireGroup(req, [
-      process.env.AVD_USERS_GROUP_ID,
-      process.env.AVD_ADMINISTRATORS_GROUP_ID
+      process.env.AVD_Users,
+      process.env.AVD_Administrators
     ]);
 
     const {
