@@ -6,7 +6,7 @@ const { requireRole } = require("../utils");
 module.exports = async function (context, req) {
   try {
     // Only AVD Administrators can stop the VM
-    await requireRole(req, ["AVD Administrators"]);
+    await requireRole(req, ["AVD_Administrators"]);
 
     const {
       TENANT_ID, CLIENT_ID, CLIENT_SECRET,
