@@ -2,15 +2,15 @@
   "routes": [
     {
       "route": "/api/avd-start",
-      "allowedRoles": ["AVD Users", "AVD Administrators"]
+      "allowedRoles": ["AVD_Users", "AVD_Administrators"]
     },
     {
       "route": "/api/avd-status",
-      "allowedRoles": ["AVD Users", "AVD Administrators"]
+      "allowedRoles": ["AVD_Users", "AVD_Administrators"]
     },
     {
       "route": "/api/avd-stop",
-      "allowedRoles": ["AVD Administrators"]
+      "allowedRoles": ["AVD_Administrators"]
     }
   ],
   "responseOverrides": {
