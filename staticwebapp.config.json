@@ -7,21 +7,19 @@
   ],
   "responseOverrides": {
     "401": {
-      "redirect": "/unauthorized",
+      "redirect": "/.auth/login/aad?post_login_redirect_uri=/",
       "statusCode": 302
     },
     "403": {
-      "redirect": "/unauthorized",
-      "statusCode": 302
+      "rewrite": "/unauthorized.html",
+      "statusCode": 200
     }
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": [
-      "/images/*",
-      "/css/*",
-      "/js/*",
-      "/favicon.ico"
-    ]
+    "exclude": ["/images/*", "/css/*", "/js/*", "/favicon.ico", "/unauthorized.html"]
+  },
+  "globalHeaders": {
+    "Cache-Control": "no-store"
   }
 }
