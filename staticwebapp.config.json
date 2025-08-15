@@ -1,15 +1,7 @@
 {
   "routes": [
     {
-      "route": "/api/avd-start",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/avd-status",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/avd-stop",
+      "route": "/api/*",
       "allowedRoles": ["authenticated"]
     }
   ],
@@ -25,6 +17,11 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/images/*", "/css/*", "/js/*", "/favicon.ico"]
+    "exclude": [
+      "/images/*",
+      "/css/*",
+      "/js/*",
+      "/favicon.ico"
+    ]
   }
 }
