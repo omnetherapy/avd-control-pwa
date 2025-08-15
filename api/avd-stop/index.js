@@ -1,30 +1,31 @@
 // /api/avd-stop/index.js
 const { ClientSecretCredential } = require("@azure/identity");
 const axios = require("axios");
-const { requireGroup } = require("../utils");
+const { requireGroup, getConfiguredGroupIds } = require("../utils");
 
 module.exports = async function (context, req) {
   try {
-    // Only AVD Administrators can STOP
-    await requireGroup(req, [process.env.AVD_ADMINISTRATORS_GROUP_ID]);
+    const { admins } = getConfiguredGroupIds();
+    // Only Admins can stop
+    await requireGroup(req, [admins].filter(Boolean));
 
     const {
       TENANT_ID, CLIENT_ID, CLIENT_SECRET,
-      SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME
+      SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME,
     } = process.env;
 
     if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !SUBSCRIPTION_ID || !RESOURCE_GROUP || !VM_NAME) {
       throw new Error("Missing required environment variables.");
     }
 
-    const credential = new ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET);
-    const token = await credential.getToken("https://management.azure.com/.default");
-    if (!token?.token) throw new Error("Failed to acquire Azure access token.");
+    const cred = new ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET);
+    const token = (await cred.getToken("https://management.azure.com/.default"))?.token;
+    if (!token) throw new Error("Failed to acquire Azure access token.");
 
-    // Deallocate = stop & release compute
+    // Deallocate = fully stop billing for compute. Use powerOff for soft stop.
     const url = `https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/deallocate?api-version=2023-09-01`;
     const r = await axios.post(url, null, {
-      headers: { Authorization: `Bearer ${token.token}` },
+      headers: { Authorization: `Bearer ${token}` },
       timeout: 30000
     });
 
@@ -34,9 +35,9 @@ module.exports = async function (context, req) {
       body: { success: true, message: `VM '${VM_NAME}' stop request sent.`, statusCode: r.status }
     };
   } catch (err) {
-    context.log.error("avd-stop error:", err?.message || err);
+    context.log.error("Error in avd-stop:", err?.message || err);
     context.res = {
-      status: err?.status || err?.response?.status || 500,
+      status: err.status || err?.response?.status || 500,
       headers: { "Content-Type": "application/json" },
       body: { success: false, error: err.message || "Failed to stop VM", details: err.response?.data || null }
     };
