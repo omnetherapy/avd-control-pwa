@@ -1,46 +1,44 @@
 const { ClientSecretCredential } = require("@azure/identity");
 const axios = require("axios");
-const { requireRole } = require("../utils"); // Import the shared role helper
+const { requireRole } = require("../utils");
 
 module.exports = async function (context, req) {
-  const principal = requireRole(context, req, ["avd-operator", "avd-admin"]);
-  if (!principal) return;
-  
   try {
-    const principal = getClientPrincipal(req);
-    if (!principal || !principal.userRoles.some(r => r === "starter" || r === "admin")) {
-      context.res = {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-        body: { success: false, error: "Forbidden: requires role 'starter' or 'admin'." }
-      };
-      return;
-    }
+    // Allow both Users and Administrators
+    await requireRole(req, ["AVD Users", "AVD Administrators"]);
 
-    const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME } = process.env;
+    const {
+      TENANT_ID, CLIENT_ID, CLIENT_SECRET,
+      SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME
+    } = process.env;
+
     if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !SUBSCRIPTION_ID || !RESOURCE_GROUP || !VM_NAME) {
       throw new Error("Missing required environment variables.");
     }
 
     const credential = new ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET);
-    const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+    const tokenResp = await credential.getToken("https://management.azure.com/.default");
+    if (!tokenResp?.token) throw new Error("Failed to acquire Azure access token.");
 
     const url = `https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/start?api-version=2023-09-01`;
+    const r = await axios.post(url, null, {
+      headers: { Authorization: `Bearer ${tokenResp.token}` },
+      timeout: 30000
+    });
 
-    await axios.post(url, null, { headers: { Authorization: `Bearer ${tokenResponse.token}` } });
-
+    context.log(`Start request sent for VM '${VM_NAME}', status: ${r.status}`);
     context.res = {
       status: 200,
       headers: { "Content-Type": "application/json" },
-      body: { success: true, message: "VM start initiated successfully." }
+      body: { success: true, message: `VM '${VM_NAME}' start request sent.`, statusCode: r.status }
     };
 
   } catch (err) {
-    context.log("Error in avd-start:", err.message || err);
+    context.log.error("Error in avd-start:", err?.message || err);
     context.res = {
-      status: 500,
+      status: err?.response?.status || 500,
       headers: { "Content-Type": "application/json" },
-      body: { success: false, error: err.message || "Failed to start VM" }
+      body: { success: false, error: err.message || "Failed to start VM", details: err.response?.data || null }
     };
   }
 };
