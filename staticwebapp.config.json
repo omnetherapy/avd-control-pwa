@@ -1,25 +1,34 @@
 {
-  "routes": [
-    { "route": "/login", "redirect": "/.auth/login/aad" },
-    { "route": "/logout", "redirect": "/.auth/logout" },
-
-    // Lock the entire UI to your chosen roles
-    { "route": "/", "allowedRoles": ["avd-operator", "admin"] },
-    { "route": "/index.html", "allowedRoles": ["avd-operator", "admin"] },
-
-    // API protections
-    { "route": "/api/avd-status", "allowedRoles": ["avd-operator", "admin"] },
-    { "route": "/api/avd-start",  "allowedRoles": ["avd-operator", "admin"] },
-    { "route": "/api/avd-stop",   "allowedRoles": ["admin"] }
-  ],
-  "responseOverrides": {
-    "401": { "redirect": "/login", "statusCode": 302 }
-  },
-  "auth": {
-    "rolesSource": "DEFAULT"
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/.auth/*", "/*.css", "/*.js", "/assets/*"]
+    "exclude": ["/api/*"]
+  },
+  "routes": [
+    {
+      "route": "/api/avd-status",
+      "allowedRoles": ["avd-operator", "avd-admin"]
+    },
+    {
+      "route": "/api/avd-start",
+      "allowedRoles": ["avd-operator", "avd-admin"]
+    },
+    {
+      "route": "/api/avd-stop",
+      "allowedRoles": ["avd-admin"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad",
+      "statusCode": 302
+    }
+  },
+  "globalHeaders": {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  },
+  "mimeTypes": {
+    ".json": "text/json"
   }
 }
