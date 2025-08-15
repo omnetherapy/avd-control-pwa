@@ -5,7 +5,7 @@ const { requireRole } = require("../utils");
 module.exports = async function (context, req) {
   try {
     // Allow both Users and Administrators
-    await requireRole(req, ["AVD Users", "AVD Administrators"]);
+    await requireRole(req, ["AVD_Users", "AVD_Administrators"]);
 
     const {
       TENANT_ID, CLIENT_ID, CLIENT_SECRET,
