@@ -22,18 +22,34 @@
   <h1>Azure VM Control</h1>
   <div id="vmStatus" class="gray">Checking VM status...</div>
   <div id="lastUpdated">Last updated: --:--:--</div>
+
   <div>
     <button id="startBtn" class="btn-green" onclick="startAvd()">Start VM</button>
     <button id="stopBtn" class="btn-red" onclick="stopAvd()">Stop VM</button>
-    <nav>
-  <a href="/.auth/login/aad">Login</a>
-  <a href="/.auth/logout">Logout</a>
-</nav>
   </div>
+
+  <nav style="margin-top: 10px;">
+    <a id="loginLink" href="/.auth/login/aad?post_login_redirect_uri=/">Login</a>
+    <a id="logoutLink" href="/.auth/logout?post_logout_redirect_uri=/">Logout</a>
+  </nav>
 
   <script>
     let pollInterval = 10000;
     let pollTimer;
+
+    async function toggleAuthLinks() {
+      try {
+        const res = await fetch('/.auth/me');
+        const data = await res.json();
+        const loggedIn = !!data.clientPrincipal;
+
+        document.getElementById('loginLink').style.display = loggedIn ? 'none' : 'inline';
+        document.getElementById('logoutLink').style.display = loggedIn ? 'inline' : 'none';
+      } catch {
+        document.getElementById('loginLink').style.display = 'inline';
+        document.getElementById('logoutLink').style.display = 'none';
+      }
+    }
 
     function updateTimestamp() {
       const now = new Date();
@@ -70,22 +86,22 @@
       const stopBtn = document.getElementById("stopBtn");
 
       if (data.success) {
-        const state = data.state?.toLowerCase() || "";
+        const state = (data.powerState || "").toLowerCase();
 
         if (state.includes("running")) {
-          setStatus(data.message, "green");
+          setStatus(data.powerState, "green");
           startBtn.disabled = true;
           stopBtn.disabled = false;
           scheduleNextPoll(10000);
         }
         else if (state.includes("deallocated")) {
-          setStatus(data.message, "red");
+          setStatus(data.powerState, "red");
           startBtn.disabled = false;
           stopBtn.disabled = true;
           scheduleNextPoll(10000);
         }
         else {
-          setStatus(data.message, "orange");
+          setStatus(data.powerState, "orange");
           startBtn.disabled = true;
           stopBtn.disabled = true;
           scheduleNextPoll(3000);
@@ -118,6 +134,7 @@
     setInterval(updateTimestamp, 1000);
 
     // Start the first check
+    toggleAuthLinks();
     updateStatus();
   </script>
 </body>
