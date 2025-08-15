@@ -4,12 +4,12 @@
     { "route": "/logout", "redirect": "/.auth/logout" },
 
     // Lock the entire UI to your chosen roles
-    { "route": "/", "allowedRoles": ["starter", "admin"] },
-    { "route": "/index.html", "allowedRoles": ["starter", "admin"] },
+    { "route": "/", "allowedRoles": ["avd-operator", "admin"] },
+    { "route": "/index.html", "allowedRoles": ["avd-operator", "admin"] },
 
     // API protections
-    { "route": "/api/avd-status", "allowedRoles": ["starter", "admin"] },
-    { "route": "/api/avd-start",  "allowedRoles": ["starter", "admin"] },
+    { "route": "/api/avd-status", "allowedRoles": ["avd-operator", "admin"] },
+    { "route": "/api/avd-start",  "allowedRoles": ["avd-operator", "admin"] },
     { "route": "/api/avd-stop",   "allowedRoles": ["admin"] }
   ],
   "responseOverrides": {
