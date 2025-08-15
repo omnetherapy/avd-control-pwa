@@ -1,20 +1,11 @@
 const { ClientSecretCredential } = require("@azure/identity");
 const axios = require("axios");
-
-function getClientPrincipal(req) {
-  const hdr = req.headers["x-ms-client-principal"];
-  if (!hdr) return null;
-  try {
-    const json = Buffer.from(hdr, "base64").toString("utf8");
-    const p = JSON.parse(json);
-    p.userRoles = p.userRoles || [];
-    return p;
-  } catch {
-    return null;
-  }
-}
+const { requireRole } = require("../utils"); // Import the shared role helper
 
 module.exports = async function (context, req) {
+  const principal = requireRole(context, req, ["avd-operator", "avd-admin"]);
+  if (!principal) return;
+  
   try {
     const principal = getClientPrincipal(req);
     if (!principal || !principal.userRoles.some(r => r === "starter" || r === "admin")) {
