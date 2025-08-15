@@ -3,61 +3,44 @@ const axios = require("axios");
 const { requireRole } = require("../utils");
 
 module.exports = async function (context, req) {
-  const principal = requireRole(context, req, ["avd-operator", "avd-admin"]);
-  if (!principal) return;
-  
   try {
-    const tenantId = process.env.TENANT_ID;
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const subscriptionId = process.env.SUBSCRIPTION_ID;
-    const resourceGroup = process.env.RESOURCE_GROUP;
-    const vmName = process.env.VM_NAME;
+    // Allow both Users and Administrators to check status
+    await requireRole(req, ["AVD Users", "AVD Administrators"]);
 
-    if (!tenantId || !clientId || !clientSecret || !subscriptionId || !resourceGroup || !vmName) {
+    const {
+      TENANT_ID, CLIENT_ID, CLIENT_SECRET,
+      SUBSCRIPTION_ID, RESOURCE_GROUP, VM_NAME
+    } = process.env;
+
+    if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !SUBSCRIPTION_ID || !RESOURCE_GROUP || !VM_NAME) {
       throw new Error("Missing required environment variables.");
     }
 
-    const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-    const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+    const credential = new ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET);
+    const tokenResp = await credential.getToken("https://management.azure.com/.default");
+    if (!tokenResp?.token) throw new Error("Failed to acquire Azure access token.");
 
-    const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}/instanceView?api-version=2023-09-01`;
-
-    const res = await axios.get(url, {
-      headers: { Authorization: `Bearer ${tokenResponse.token}` }
+    const url = `https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/instanceView?api-version=2023-09-01`;
+    const r = await axios.get(url, {
+      headers: { Authorization: `Bearer ${tokenResp.token}` },
+      timeout: 30000
     });
 
-    // Debug: log full Azure response
-    context.log("Full Azure VM response:", JSON.stringify(res.data, null, 2));
-
-    // Try both possible paths for statuses
-    const statuses =
-      res.data.statuses ||
-      res.data.instanceView?.statuses ||
-      [];
-
-    context.log("Statuses array:", statuses);
-
-    let state = "Unknown";
-    if (Array.isArray(statuses)) {
-      const powerState = statuses.find(s => s.code && s.code.startsWith("PowerState/"));
-      if (powerState && powerState.displayStatus) {
-        state = powerState.displayStatus;
-      }
-    }
+    const statuses = r.data?.statuses || [];
+    const powerState = statuses.find(s => s.code?.startsWith("PowerState/"))?.displayStatus || "Unknown";
 
     context.res = {
       status: 200,
       headers: { "Content-Type": "application/json" },
-      body: { success: true, message: `VM is currently: ${state}`, state }
+      body: { success: true, vmName: VM_NAME, powerState }
     };
 
   } catch (err) {
-    context.log("Error in avd-status:", err.message || err);
+    context.log.error("Error in avd-status:", err?.message || err);
     context.res = {
-      status: 500,
+      status: err?.response?.status || 500,
       headers: { "Content-Type": "application/json" },
-      body: { success: false, error: err.message || "Failed to retrieve VM status" }
+      body: { success: false, error: err.message || "Failed to retrieve VM status", details: err.response?.data || null }
     };
   }
 };
