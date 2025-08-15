@@ -6,7 +6,6 @@
       "direction": "in",
       "name": "req",
       "methods": [ "post" ],
-      "route": "avd-stop"
     },
     {
       "type": "http",
