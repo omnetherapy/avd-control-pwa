@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
     const roles = getUserRoles(user); // utility to extract roles/groups
     // Optional: restrict access to a role/group
-    // if (!roles.includes('avd_control_admin')) return res.status(403).json({ error: 'Access denied' });
+    if (!roles.includes('AVD_Users')) return res.status(403).json({ error: 'Access denied' });
 
     // Perform the AVD action here
     const result = await performAvdAction(); // pseudo-function
