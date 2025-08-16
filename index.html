@@ -36,19 +36,25 @@
     const statusBtn = document.getElementById("status-btn");
     const outputEl = document.getElementById("output");
 
+    // Object IDs of your Azure AD groups
+    const USERS_GROUP_ID = "570fe125-3503-4277-8757-65f55a9ba35f"; // AVD Users
+    const ADMIN_GROUP_ID = "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"; // AVD Administrators
+
     // Redirect login/logout
     loginBtn.onclick = () => window.location.href = "/.auth/login/aad";
     logoutBtn.onclick = () => window.location.href = "/.auth/logout";
 
-    // Replace with your Azure AD Group Object IDs
-    const GROUP_ADMINS = "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"; // AVD Administrators
-    const GROUP_USERS  = "570fe125-3503-4277-8757-65f55a9ba35f"; // AVD Users
+    function disableAll() {
+      startBtn.disabled = true;
+      stopBtn.disabled = true;
+      statusBtn.disabled = true;
+    }
 
+    // Fetch /.auth/me to get user info
     async function checkAuth() {
       try {
         const res = await fetch('/.auth/me', { credentials: 'same-origin' });
         const data = await res.json();
-
         if (!Array.isArray(data) || data.length === 0) {
           loginBtn.style.display = 'inline-block';
           logoutBtn.style.display = 'none';
@@ -61,29 +67,25 @@
         logoutBtn.style.display = 'inline-block';
 
         const claims = data[0].userClaims || [];
-        const groupIds = claims.filter(c => c.typ === "groups").map(c => c.val);
+        const groups = claims
+          .filter(c => c.typ === "groups")
+          .map(c => c.val);
 
-        const isAdmin = groupIds.includes(GROUP_ADMINS);
-        const isUser  = groupIds.includes(GROUP_USERS);
-
-        startBtn.disabled  = !(isUser || isAdmin);
-        stopBtn.disabled   = !isAdmin;
-        statusBtn.disabled = !(isUser || isAdmin);
+        // Enable buttons based on group object IDs
+        startBtn.disabled = !groups.includes(USERS_GROUP_ID) && !groups.includes(ADMIN_GROUP_ID);
+        stopBtn.disabled = !groups.includes(ADMIN_GROUP_ID);
+        statusBtn.disabled = !groups.includes(USERS_GROUP_ID) && !groups.includes(ADMIN_GROUP_ID);
 
         outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
-        console.log("Groups:", groupIds);
+        console.log("Group object IDs:", groups);
+
       } catch (err) {
         console.error(err);
         outputEl.innerHTML = `<div class="error">⚠️ Error checking authentication: ${err.message}</div>`;
       }
     }
 
-    function disableAll() {
-      startBtn.disabled = true;
-      stopBtn.disabled  = true;
-      statusBtn.disabled = true;
-    }
-
+    // Generic API call
     async function callApi(endpoint, method="GET") {
       try {
         const res = await fetch(`/api/avd/${endpoint}`, { method, credentials: 'same-origin' });
@@ -103,8 +105,9 @@
       }
     }
 
-    startBtn.onclick  = () => callApi("start", "POST");
-    stopBtn.onclick   = () => callApi("stop", "POST");
+    // Button events
+    startBtn.onclick = () => callApi("start", "POST");
+    stopBtn.onclick = () => callApi("stop", "POST");
     statusBtn.onclick = () => callApi("status");
 
     checkAuth();
