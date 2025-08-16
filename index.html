@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>AVD Control Service</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
     #auth-buttons button, #api-buttons button { margin-right: 10px; margin-top: 5px; }
-    #output { margin-top: 20px; font-family: Arial, sans-serif; }
-    .error { color: red; font-weight: bold; }
-    .success { color: green; font-weight: bold; }
+    #output { margin-top: 20px; white-space: pre-wrap; }
+    .error { color: #a00; font-weight: bold; }
+    .success { color: #0a0; font-weight: bold; }
+    .muted { color: #666; }
+    .loading { opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -16,33 +20,33 @@
   <!-- Login / Logout -->
   <div id="auth-buttons">
     <button id="login-btn">Login</button>
-    <button id="logout-btn">Logout</button>
+    <button id="logout-btn" style="display:none">Logout</button>
   </div>
 
   <!-- AVD API Buttons -->
-  <div id="api-buttons">
+  <div id="api-buttons" style="margin-top:12px">
     <button id="start-btn" disabled>Start VM</button>
     <button id="stop-btn" disabled>Stop VM</button>
     <button id="status-btn" disabled>Status</button>
   </div>
 
-  <div id="output"></div>
+  <div id="output" aria-live="polite"></div>
 
   <script>
-    const loginBtn = document.getElementById("login-btn");
-    const logoutBtn = document.getElementById("logout-btn");
-    const startBtn = document.getElementById("start-btn");
-    const stopBtn = document.getElementById("stop-btn");
-    const statusBtn = document.getElementById("status-btn");
-    const outputEl = document.getElementById("output");
+    // ====== CONFIG: Replace with your Azure AD Group Object IDs ======
+    const USERS_GROUP_ID = '570fe125-3503-4277-8757-65f55a9ba35f';
+    const ADMIN_GROUP_ID = '08160b89-cbf1-4e7b-bb51-f243c61e9cd0';
 
-    // Object IDs of your Azure AD groups
-    const USERS_GROUP_ID = '570fe125-3503-4277-8757-65f55a9ba35f'; // AVD Users
-    const ADMIN_GROUP_ID = '08160b89-cbf1-4e7b-bb51-f243c61e9cd0'; // AVD Administrators
+    // ====== UI elements ======
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const statusBtn = document.getElementById('status-btn');
+    const outputEl = document.getElementById('output');
 
-    // Redirect login/logout
-    loginBtn.onclick = () => window.location.href = "/.auth/login/aad";
-    logoutBtn.onclick = () => window.location.href = "/.auth/logout";
+    loginBtn.addEventListener('click', () => window.location.href = '/.auth/login/aad');
+    logoutBtn.addEventListener('click', () => window.location.href = '/.auth/logout');
 
     function disableAll() {
       startBtn.disabled = true;
@@ -50,65 +54,133 @@
       statusBtn.disabled = true;
     }
 
-    // Fetch /.auth/me to get user info
+    function showInfo(text) {
+      outputEl.innerHTML = '';
+      const p = document.createElement('div'); p.textContent = text; outputEl.appendChild(p);
+    }
+    function showSuccess(text) {
+      outputEl.innerHTML = '';
+      const d = document.createElement('div'); d.className = 'success'; d.textContent = text; outputEl.appendChild(d);
+    }
+    function showError(text) {
+      outputEl.innerHTML = '';
+      const d = document.createElement('div'); d.className = 'error'; d.textContent = text; outputEl.appendChild(d);
+    }
+    function showJson(obj) {
+      outputEl.innerHTML = '';
+      const pre = document.createElement('pre'); pre.textContent = JSON.stringify(obj, null, 2); outputEl.appendChild(pre);
+    }
+
     async function checkAuth() {
       try {
         const res = await fetch('/.auth/me', { credentials: 'same-origin' });
-        const data = await res.json();
+        if (res.redirected && res.url.includes('/.auth/login')) {
+          loginBtn.style.display = 'inline-block';
+          logoutBtn.style.display = 'none';
+          disableAll();
+          showInfo('Please log in to use the app.');
+          return;
+        }
+
+        let data;
+        try { data = await res.json(); } catch (err) {
+          loginBtn.style.display = 'inline-block';
+          logoutBtn.style.display = 'none';
+          disableAll();
+          showError('Authentication failure: unexpected response from /.auth/me');
+          return;
+        }
+
         if (!Array.isArray(data) || data.length === 0) {
           loginBtn.style.display = 'inline-block';
           logoutBtn.style.display = 'none';
           disableAll();
-          outputEl.innerHTML = "Please log in to use the app.";
+          showInfo('Please log in to use the app.');
           return;
         }
 
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-block';
 
-        const claims = data[0].userClaims || [];
-        const groups = claims
-          .filter(c => c.typ === "groups")
-          .map(c => c.val);
+        const principal = data[0] || {};
+        const claims = principal.userClaims || [];
+        const groupIds = claims.filter(c => c.typ === 'groups' || c.type === 'groups').map(c => c.val || c.value).filter(Boolean);
+        const roles = Array.isArray(principal.userRoles) ? principal.userRoles : [];
 
-        // Enable buttons based on group object IDs
-        startBtn.disabled = !groups.includes(USERS_GROUP_ID) && !groups.includes(ADMIN_GROUP_ID);
-        stopBtn.disabled = !groups.includes(ADMIN_GROUP_ID);
-        statusBtn.disabled = !groups.includes(USERS_GROUP_ID) && !groups.includes(ADMIN_GROUP_ID);
+        const isAdmin = groupIds.includes(ADMIN_GROUP_ID) || roles.includes('AVD_Administrators') || roles.includes('AVD_Administrator');
+        const isUser  = groupIds.includes(USERS_GROUP_ID) || roles.includes('AVD_Users');
 
-        outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
-        console.log("Group object IDs:", groups);
+        startBtn.disabled  = !(isUser || isAdmin);
+        stopBtn.disabled   = !isAdmin;
+        statusBtn.disabled = !(isUser || isAdmin);
 
+        const userText = principal.userDetails || principal.userId || 'signed-in user';
+        showSuccess(`✅ Logged in as ${userText}`);
+        console.debug('/.auth/me groups:', groupIds, 'roles:', roles);
       } catch (err) {
-        console.error(err);
-        outputEl.innerHTML = `<div class="error">⚠️ Error checking authentication: ${err.message}</div>`;
+        console.error('checkAuth error', err);
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        disableAll();
+        showError('Error checking authentication: ' + (err.message || err));
       }
     }
 
-    // Generic API call
-    async function callApi(endpoint, method="GET") {
+    const DEFAULT_TIMEOUT_MS = 120000;
+
+    async function callApi(endpoint, options = {}) {
+      const method = (options.method || 'GET').toUpperCase();
+      startBtn.disabled = true; stopBtn.disabled = true; statusBtn.disabled = true;
+      document.getElementById('api-buttons').classList.add('loading');
+      showInfo('Calling API — please wait...');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
+
       try {
-        const res = await fetch(`/api/avd/${endpoint}`, { method, credentials: 'same-origin' });
+        const res = await fetch(`/api/avd/${endpoint}`, {
+          method,
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+          body: options.body ? JSON.stringify(options.body) : undefined,
+          signal: controller.signal
+        });
+
         if (res.redirected && res.url.includes('/.auth/login')) {
           window.location.href = res.url;
           return;
         }
-        const data = await res.json();
+
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        let payload;
+        if (contentType.includes('application/json')) {
+          try { payload = await res.json(); } catch (e) { payload = { error: 'Failed to parse JSON from API' }; }
+        } else {
+          payload = { text: await res.text() };
+        }
+
         if (!res.ok) {
-          outputEl.innerHTML = `<div class="error">🚫 ${data.error}</div>`;
+          const errMsg = payload?.error || payload?.text || `HTTP ${res.status}`;
+          showError(`API Error: ${errMsg}`);
           return;
         }
-        outputEl.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-        return data;
+
+        showJson(payload);
+        return payload;
       } catch (err) {
-        outputEl.innerHTML = `<div class="error">⚠️ Error: ${err.message}</div>`;
+        if (err.name === 'AbortError') showError('Request timed out');
+        else showError('Network or server error: ' + (err.message || err));
+        console.error('callApi error', err);
+      } finally {
+        clearTimeout(timeoutId);
+        document.getElementById('api-buttons').classList.remove('loading');
+        await checkAuth();
       }
     }
 
-    // Button events
-    startBtn.onclick = () => callApi("start", "POST");
-    stopBtn.onclick = () => callApi("stop", "POST");
-    statusBtn.onclick = () => callApi("status");
+    startBtn.addEventListener('click', () => callApi('start', { method: 'POST' }));
+    stopBtn.addEventListener('click',  () => callApi('stop',  { method: 'POST' }));
+    statusBtn.addEventListener('click',() => callApi('status', { method: 'GET' }));
 
     checkAuth();
   </script>
