@@ -1,23 +1,123 @@
-<script>
-async function callApi(endpoint, method = "GET") {
-  try {
-    const res = await fetch(`/api/${endpoint}`, { method });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AVD Control Service</title>
+<style>
+  #auth-buttons button { margin-right: 10px; }
+  #output { margin-top: 20px; font-family: Arial, sans-serif; }
+  .error { color: red; font-weight: bold; }
+  .success { color: green; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>AVD Control Service</h1>
 
-    // Handle HTML vs JSON responses
-    const contentType = res.headers.get("content-type") || "";
+<!-- Login / Logout buttons -->
+<div id="auth-buttons">
+  <button id="login-btn">Login</button>
+  <button id="logout-btn">Logout</button>
+</div>
+
+<!-- API button -->
+<div id="api-buttons">
+  <button id="call-api-btn" disabled>Call API</button>
+</div>
+
+<div id="output"></div>
+
+<script>
+const loginBtn = document.getElementById("login-btn");
+const logoutBtn = document.getElementById("logout-btn");
+const callApiBtn = document.getElementById("call-api-btn");
+const outputEl = document.getElementById("output");
+
+// Redirect to login/logout
+loginBtn.addEventListener("click", () => window.location.href = "/.auth/login/aad");
+logoutBtn.addEventListener("click", () => window.location.href = "/.auth/logout");
+
+// Check login state and roles/groups
+async function checkAuth() {
+  try {
+    const res = await fetch('/.auth/me', { credentials: 'same-origin' });
+    const data = await res.json();
+
+    if (Array.isArray(data) && data.length > 0) {
+      // User is signed in
+      loginBtn.style.display = 'none';
+      logoutBtn.style.display = 'inline-block';
+      callApiBtn.disabled = false;
+
+      // ----- CUSTOMIZATION: Replace with your app role values or Azure AD group IDs -----
+      const userRoles = data[0].userRoles || []; // appRoles claim
+      const userGroups = data[0].userClaims
+        .filter(c => c.typ === "groups")
+        .map(c => c.val); // group object IDs
+
+      // Example: only enable API for specific role or group
+       const allowedRole = "AVD_Administrators"; // <-- replace with your role value
+       const allowedGroupId = "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"; // <-- replace with your security group ID
+       if (!userRoles.includes(allowedRole) && !userGroups.includes(allowedGroupId)) {
+       callApiBtn.disabled = true;
+       outputEl.innerHTML = `<div class="error">🚫 You do not have permission</div>`;
+      // }
+
+      outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
+      console.log("Roles:", userRoles, "Groups:", userGroups);
+    } else {
+      // Not signed in
+      loginBtn.style.display = 'inline-block';
+      logoutBtn.style.display = 'none';
+      callApiBtn.disabled = true;
+      outputEl.innerHTML = `<div>Please log in to use the app.</div>`;
+    }
+  } catch (err) {
+    console.error(err);
+    outputEl.innerHTML = `<div class="error">⚠️ Error checking authentication: ${err.message}</div>`;
+  }
+}
+
+// Enhanced callApi function
+async function callApi(endpoint, method = "GET", body = null) {
+  try {
+    const opts = {
+      method,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    };
+
+    if (body != null) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+
+    const res = await fetch(`/api/${endpoint}`, opts);
+
+    // Detect redirect to login
+    if (res.redirected && res.url.includes('/.auth/login')) {
+      window.location.href = res.url;
+      return;
+    }
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    const isHtml = contentType.includes("text/html");
     const isJson = contentType.includes("application/json");
+
+    if (isHtml) {
+      window.location.href = "/.auth/login/aad";
+      return;
+    }
+
     const data = isJson ? await res.json() : { error: "Unexpected response" };
 
     if (res.status === 401) {
-      // Not logged in — redirect to login
       window.location.href = "/.auth/login/aad";
       return;
     }
 
     if (res.status === 403) {
-      // Logged in but no group access
-      document.getElementById("output").innerHTML =
-        `<div style="color:red;font-weight:bold;">🚫 Access Denied</div>
+      outputEl.innerHTML =
+        `<div class="error">🚫 Access Denied</div>
          <div>You do not have permission to use this feature.</div>`;
       return;
     }
@@ -26,11 +126,14 @@ async function callApi(endpoint, method = "GET") {
       throw new Error(data?.error || "Unknown API error");
     }
 
+    outputEl.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
     return data;
   } catch (err) {
-    document.getElementById("output").innerHTML =
-      `<div style="color:red;font-weight:bold;">⚠️ Error</div>
+    outputEl.innerHTML =
+      `<div class="error">⚠️ Error</div>
        <div>${err.message}</div>`;
   }
 }
-</script>
+
+// ----- CUSTOMIZATION: Replace "example-endpoint" with your API route -----
+callApiBtn.addEventListener("click", () =
