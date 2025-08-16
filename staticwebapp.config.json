@@ -2,11 +2,11 @@
   "routes": [
     {
       "route": "/api/*",
-      "allowedRoles": ["authenticated"]  // forces login for any API endpoint
+      "allowedRoles": ["authenticated"]
     },
     {
-      "route": "/*",
-      "serve": "/index.html"
+      "route": "/",
+      "allowedRoles": ["authenticated"]
     }
   ],
   "responseOverrides": {
