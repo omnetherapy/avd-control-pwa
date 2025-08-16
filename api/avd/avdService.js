@@ -1,55 +1,34 @@
-import { getClientPrincipal, extractGroupIdsFromPrincipal } from './utils.js';
-import { startAvd, stopAvd, getAvdStatus } from './avdService.js';
+import { ClientSecretCredential } from "@azure/identity";
+import { ComputeManagementClient } from "@azure/arm-compute";
 
-// Define allowed group/role names
-const USERS_GROUP = 'AVD_Users';
-const ADMIN_GROUP = 'AVD_Administrators';
+// 🔧 Environment variables
+const subscriptionId = process.env.SUBSCRIPTION_ID;
+const resourceGroupName = process.env.RESOURCE_GROUP;
+const vmName = process.env.VM_NAME;
+const clientId = process.env.CLIENT_ID;
+const clientSecret = process.env.CLIENT_SECRET;
+const tenantId = process.env.TENANT_ID;
 
-export default async function handler(req, res) {
-  try {
-    // Get authenticated user
-    const principal = getClientPrincipal(req);
-    if (!principal || !principal.userId) {
-      return res.status(401).json({ error: 'Not logged in' });
-    }
+const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+const client = new ComputeManagementClient(credential, subscriptionId);
 
-    const groups = extractGroupIdsFromPrincipal(principal);
+// ---- Start VM ----
+export async function startAvd() {
+  const poller = await client.virtualMachines.beginStart(resourceGroupName, vmName);
+  await poller.pollUntilDone();
+  return { message: `VM ${vmName} started successfully` };
+}
 
-    // Route based on request path
-    const path = req.url.replace(/^\/api\/avd/, '').toLowerCase();
+// ---- Stop VM ----
+export async function stopAvd() {
+  const poller = await client.virtualMachines.beginPowerOff(resourceGroupName, vmName);
+  await poller.pollUntilDone();
+  return { message: `VM ${vmName} stopped successfully` };
+}
 
-    if (path.startsWith('/start')) {
-      // Allow both users and admins to start
-      if (!groups.has(USERS_GROUP) && !groups.has(ADMIN_GROUP)) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      const result = await startAvd();
-      return res.status(200).json(result);
-    }
-
-    if (path.startsWith('/stop')) {
-      // Only admins can stop
-      if (!groups.has(ADMIN_GROUP)) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      const result = await stopAvd();
-      return res.status(200).json(result);
-    }
-
-    if (path.startsWith('/status')) {
-      // Allow both users and admins to check status
-      if (!groups.has(USERS_GROUP) && !groups.has(ADMIN_GROUP)) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      const result = await getAvdStatus();
-      return res.status(200).json(result);
-    }
-
-    // Unknown path
-    return res.status(404).json({ error: 'Invalid endpoint' });
-
-  } catch (err) {
-    console.error(err);
-    res.status(err.status || 500).json({ error: err.message });
-  }
+// ---- Get Status ----
+export async function getAvdStatus() {
+  const instanceView = await client.virtualMachines.instanceView(resourceGroupName, vmName);
+  const statuses = instanceView.statuses?.map(s => s.displayStatus) || [];
+  return { vm: vmName, statuses };
 }
