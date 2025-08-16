@@ -1,119 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>AVD Control Service</title>
-<style>
-  #auth-buttons button, #api-buttons button { margin-right: 10px; margin-top: 5px; }
-  #output { margin-top: 20px; font-family: Arial, sans-serif; }
-  .error { color: red; font-weight: bold; }
-  .success { color: green; font-weight: bold; }
-</style>
+  <meta charset="UTF-8">
+  <title>AVD Control Service</title>
+  <style>
+    #auth-buttons button, #api-buttons button { margin-right: 10px; margin-top: 5px; }
+    #output { margin-top: 20px; font-family: Arial, sans-serif; }
+    .error { color: red; font-weight: bold; }
+    .success { color: green; font-weight: bold; }
+  </style>
 </head>
 <body>
-<h1>AVD Control Service</h1>
+  <h1>AVD Control Service</h1>
 
-<!-- Login / Logout -->
-<div id="auth-buttons">
-  <button id="login-btn">Login</button>
-  <button id="logout-btn">Logout</button>
-</div>
+  <!-- Login / Logout -->
+  <div id="auth-buttons">
+    <button id="login-btn">Login</button>
+    <button id="logout-btn">Logout</button>
+  </div>
 
-<!-- AVD API Buttons -->
-<div id="api-buttons">
-  <button id="start-btn" disabled>Start VM</button>
-  <button id="stop-btn" disabled>Stop VM</button>
-  <button id="status-btn" disabled>Status</button>
-</div>
+  <!-- AVD API Buttons -->
+  <div id="api-buttons">
+    <button id="start-btn" disabled>Start VM</button>
+    <button id="stop-btn" disabled>Stop VM</button>
+    <button id="status-btn" disabled>Status</button>
+  </div>
 
-<div id="output"></div>
+  <div id="output"></div>
 
-<script>
-const loginBtn = document.getElementById("login-btn");
-const logoutBtn = document.getElementById("logout-btn");
-const startBtn = document.getElementById("start-btn");
-const stopBtn = document.getElementById("stop-btn");
-const statusBtn = document.getElementById("status-btn");
-const outputEl = document.getElementById("output");
+  <script>
+    const loginBtn = document.getElementById("login-btn");
+    const logoutBtn = document.getElementById("logout-btn");
+    const startBtn = document.getElementById("start-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const statusBtn = document.getElementById("status-btn");
+    const outputEl = document.getElementById("output");
 
-// Redirect login/logout
-loginBtn.onclick = () => window.location.href = "/.auth/login/aad";
-logoutBtn.onclick = () => window.location.href = "/.auth/logout";
+    // Redirect login/logout
+    loginBtn.onclick = () => window.location.href = "/.auth/login/aad";
+    logoutBtn.onclick = () => window.location.href = "/.auth/logout";
 
-// Roles/groups
-const USERS_GROUP = "AVD_Users";
-const ADMIN_GROUP = "AVD_Administrators";
+    // Replace with your Azure AD Group Object IDs
+    const GROUP_ADMINS = "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"; // AVD Administrators
+    const GROUP_USERS  = "570fe125-3503-4277-8757-65f55a9ba35f"; // AVD Users
 
-// Fetch /.auth/me to get user info
-async function checkAuth() {
-  try {
-    const res = await fetch('/.auth/me', { credentials: 'same-origin' });
-    const data = await res.json();
+    async function checkAuth() {
+      try {
+        const res = await fetch('/.auth/me', { credentials: 'same-origin' });
+        const data = await res.json();
 
-    if (!Array.isArray(data) || data.length === 0) {
-      loginBtn.style.display = 'inline-block';
-      logoutBtn.style.display = 'none';
-      disableAll();
-      outputEl.innerHTML = "Please log in to use the app.";
-      return;
+        if (!Array.isArray(data) || data.length === 0) {
+          loginBtn.style.display = 'inline-block';
+          logoutBtn.style.display = 'none';
+          disableAll();
+          outputEl.innerHTML = "Please log in to use the app.";
+          return;
+        }
+
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+
+        const claims = data[0].userClaims || [];
+        const groupIds = claims.filter(c => c.typ === "groups").map(c => c.val);
+
+        const isAdmin = groupIds.includes(GROUP_ADMINS);
+        const isUser  = groupIds.includes(GROUP_USERS);
+
+        startBtn.disabled  = !(isUser || isAdmin);
+        stopBtn.disabled   = !isAdmin;
+        statusBtn.disabled = !(isUser || isAdmin);
+
+        outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
+        console.log("Groups:", groupIds);
+      } catch (err) {
+        console.error(err);
+        outputEl.innerHTML = `<div class="error">⚠️ Error checking authentication: ${err.message}</div>`;
+      }
     }
 
-    loginBtn.style.display = 'none';
-    logoutBtn.style.display = 'inline-block';
-
-    const claims = data[0].userClaims || [];
-    const groups = claims.filter(c => c.typ === "groups").map(c => c.val);
-
-    // Enable buttons based on group
-    startBtn.disabled = !groups.includes(USERS_GROUP) && !groups.includes(ADMIN_GROUP);
-    stopBtn.disabled = !groups.includes(ADMIN_GROUP);
-    statusBtn.disabled = !groups.includes(USERS_GROUP) && !groups.includes(ADMIN_GROUP);
-
-    outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
-    console.log("Groups:", groups);
-
-  } catch (err) {
-    console.error(err);
-    outputEl.innerHTML = `<div class="error">⚠️ Error checking authentication: ${err.message}</div>`;
-  }
-}
-
-function disableAll() {
-  startBtn.disabled = true;
-  stopBtn.disabled = true;
-  statusBtn.disabled = true;
-}
-
-// Generic API call
-async function callApi(endpoint, method="GET") {
-  try {
-    const res = await fetch(`/api/avd/${endpoint}`, { method, credentials: 'same-origin' });
-    if (res.redirected && res.url.includes('/.auth/login')) {
-      window.location.href = res.url;
-      return;
+    function disableAll() {
+      startBtn.disabled = true;
+      stopBtn.disabled  = true;
+      statusBtn.disabled = true;
     }
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      outputEl.innerHTML = `<div class="error">🚫 ${data.error}</div>`;
-      return;
+    async function callApi(endpoint, method="GET") {
+      try {
+        const res = await fetch(`/api/avd/${endpoint}`, { method, credentials: 'same-origin' });
+        if (res.redirected && res.url.includes('/.auth/login')) {
+          window.location.href = res.url;
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) {
+          outputEl.innerHTML = `<div class="error">🚫 ${data.error}</div>`;
+          return;
+        }
+        outputEl.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        return data;
+      } catch (err) {
+        outputEl.innerHTML = `<div class="error">⚠️ Error: ${err.message}</div>`;
+      }
     }
 
-    outputEl.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-    return data;
+    startBtn.onclick  = () => callApi("start", "POST");
+    stopBtn.onclick   = () => callApi("stop", "POST");
+    statusBtn.onclick = () => callApi("status");
 
-  } catch (err) {
-    outputEl.innerHTML = `<div class="error">⚠️ Error: ${err.message}</div>`;
-  }
-}
-
-// Button events
-startBtn.onclick = () => callApi("start", "POST");
-stopBtn.onclick = () => callApi("stop", "POST");
-statusBtn.onclick = () => callApi("status");
-
-checkAuth();
-</script>
+    checkAuth();
+  </script>
 </body>
 </html>
