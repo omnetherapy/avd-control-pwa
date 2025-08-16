@@ -1,84 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>AVD Control Service</title>
-<style>
-  #auth-buttons button { margin-right: 10px; }
-  #api-buttons button { margin-right: 10px; margin-top: 10px; }
-  #output { margin-top: 20px; font-family: Arial, sans-serif; }
-  .error { color: red; font-weight: bold; }
-  .success { color: green; font-weight: bold; }
-</style>
-</head>
-<body>
-<h1>AVD Control Service</h1>
-
-<div id="auth-buttons">
-  <button id="login-btn">Login</button>
-  <button id="logout-btn">Logout</button>
-</div>
-
-<div id="api-buttons"></div>
-
-<div id="output"></div>
-
 <script>
 const loginBtn = document.getElementById("login-btn");
 const logoutBtn = document.getElementById("logout-btn");
-const apiButtonsDiv = document.getElementById("api-buttons");
+const startBtn = document.getElementById("start-btn");
+const stopBtn = document.getElementById("stop-btn");
+const statusBtn = document.getElementById("status-btn");
 const outputEl = document.getElementById("output");
 
+// Redirect to login/logout
 loginBtn.addEventListener("click", () => window.location.href = "/.auth/login/aad");
 logoutBtn.addEventListener("click", () => window.location.href = "/.auth/logout");
 
-const apiRoutes = [
-  { endpoint: "avd-start", label: "Start AVD" },
-  { endpoint: "avd-status", label: "Check Status" },
-  { endpoint: "avd-stop", label: "Stop AVD" }
-];
-
+// Check login state and roles
 async function checkAuth() {
   try {
     const res = await fetch('/.auth/me', { credentials: 'same-origin' });
     const data = await res.json();
 
     if (Array.isArray(data) && data.length > 0) {
+      // User is signed in
       loginBtn.style.display = 'none';
       logoutBtn.style.display = 'inline-block';
 
       const userRoles = data[0].userRoles || [];
-      const userGroups = (data[0].userClaims || [])
-        .filter(c => c.typ === "groups")
-        .map(c => c.val);
 
-      const allowedRoles = ["AVD_Users"];
-      const allowedGroups = ["570fe125-3503-4277-8757-65f55a9ba35f"];
+      // Disable all buttons by default
+      startBtn.disabled = true;
+      stopBtn.disabled = true;
+      statusBtn.disabled = true;
 
-      const hasAccess = userRoles.some(r => allowedRoles.includes(r)) ||
-                        userGroups.some(g => allowedGroups.includes(g));
-
-      apiButtonsDiv.innerHTML = "";
-      apiRoutes.forEach(r => {
-        const btn = document.createElement("button");
-        btn.textContent = r.label;
-        btn.disabled = !hasAccess;
-        btn.addEventListener("click", () => callApi(r.endpoint));
-        apiButtonsDiv.appendChild(btn);
-      });
-
-      if (hasAccess) {
-        outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
-      } else {
-        outputEl.innerHTML = `<div class="error">🚫 You do not have permission to access AVD functions.</div>`;
+      // Allow based on roles
+      if (userRoles.includes("AVD_Users")) {
+        startBtn.disabled = false;
+        statusBtn.disabled = false;
+      }
+      if (userRoles.includes("AVD_Administrators")) {
+        stopBtn.disabled = false;
+        statusBtn.disabled = false; // Admins can also check status
       }
 
-      console.log("Roles:", userRoles, "Groups:", userGroups);
-
+      outputEl.innerHTML = `<div class="success">✅ Logged in as ${data[0].userId}</div>`;
+      console.log("Roles:", userRoles);
     } else {
+      // Not signed in
       loginBtn.style.display = 'inline-block';
       logoutBtn.style.display = 'none';
-      apiButtonsDiv.innerHTML = "";
+      startBtn.disabled = true;
+      stopBtn.disabled = true;
+      statusBtn.disabled = true;
       outputEl.innerHTML = `<div>Please log in to use the app.</div>`;
     }
   } catch (err) {
@@ -87,36 +55,40 @@ async function checkAuth() {
   }
 }
 
+// Call API helper
 async function callApi(endpoint, method = "GET", body = null) {
   try {
-    const opts = { method, credentials: 'same-origin', headers: { 'Accept': 'application/json' } };
+    const opts = {
+      method,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    };
+
     if (body != null) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
 
-    const res = await fetch(`/api/${endpoint}`, opts);
-    if (res.redirected && res.url.includes('/.auth/login')) {
-      window.location.href = res.url;
-      return;
-    }
+    const res = await fetch(`/api/avd/${endpoint}`, opts);
 
     const contentType = (res.headers.get("content-type") || "").toLowerCase();
     const isJson = contentType.includes("application/json");
     const data = isJson ? await res.json() : { error: "Unexpected response" };
 
-    if (res.status === 401) { window.location.href = "/.auth/login/aad"; return; }
-    if (res.status === 403) { outputEl.innerHTML = `<div class="error">🚫 Access Denied</div>`; return; }
     if (!res.ok) throw new Error(data?.error || "Unknown API error");
 
     outputEl.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
     return data;
   } catch (err) {
-    outputEl.innerHTML = `<div class="error">⚠️ Error</div><div>${err.message}</div>`;
+    outputEl.innerHTML = `<div class="error">⚠️ Error: ${err.message}</div>`;
   }
 }
 
+// Hook up buttons
+startBtn.addEventListener("click", () => callApi("start", "POST"));
+stopBtn.addEventListener("click", () => callApi("stop", "POST"));
+statusBtn.addEventListener("click", () => callApi("status", "GET"));
+
+// Run auth check on load
 checkAuth();
 </script>
-</body>
-</html>
