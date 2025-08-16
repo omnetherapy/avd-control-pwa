@@ -1,31 +1,33 @@
-function getClientPrincipal(req) {
-  const hdr = req.headers["x-ms-client-principal"];
-  if (!hdr) return null;
+// /api/avd/utils.js
+
+/**
+ * Reads the Static Web App client principal from request headers.
+ * Returns null if not authenticated.
+ */
+export function getClientPrincipal(req) {
   try {
-    const decoded = Buffer.from(hdr, "base64").toString("utf8");
-    return JSON.parse(decoded);
-  } catch {
+    const header = req.headers['x-ms-client-principal'];
+    if (!header) return null;
+
+    // Decode Base64 JSON
+    const encoded = Buffer.from(header, 'base64').toString('ascii');
+    const principal = JSON.parse(encoded);
+    return principal;
+  } catch (err) {
+    console.error("Failed to parse client principal:", err);
     return null;
   }
 }
 
-function extractGroups(principal) {
-  const out = new Set();
-  if (!principal?.claims) return out;
-  const candidates = new Set(["groups","http://schemas.microsoft.com/ws/2008/06/identity/claims/groups"]);
-  principal.claims.forEach(c => { if(c?.typ && c?.val && candidates.has(c.typ)) out.add(c.val); });
-  return out;
-}
+/**
+ * Returns a Set of Azure AD group Object IDs the user is in.
+ */
+export function extractGroupIdsFromPrincipal(principal) {
+  if (!principal || !principal.userClaims) return new Set();
 
-async function requireGroup(req, allowedGroups = []) {
-  const principal = getClientPrincipal(req);
-  if (!principal || !principal.userId) {
-    const err = new Error("Not logged in"); err.status = 401; throw err;
-  }
-  if (!allowedGroups || allowedGroups.length === 0) return principal;
-  const claimGroups = extractGroups(principal);
-  for (const g of allowedGroups) if (claimGroups.has(g)) return principal;
-  const err = new Error("Forbidden - insufficient group membership"); err.status = 403; throw err;
-}
+  const groupIds = principal.userClaims
+    .filter(c => c.typ === 'groups')
+    .map(c => c.val);
 
-module.exports = { getClientPrincipal, requireGroup };
+  return new Set(groupIds);
+}
