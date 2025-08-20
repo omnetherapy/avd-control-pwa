@@ -40,7 +40,6 @@
       "/images/*",
       "/css/*",
       "/js/*",
-      "/favicon.ico",
       "/static/*"
     ]
   },
