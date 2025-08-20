@@ -39,7 +39,7 @@ jobs:
           allow-no-subscriptions: true
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Application
         run: npm run build
@@ -53,4 +53,5 @@ jobs:
           app_location:                    "/"        # adjust if needed
           api_location:                    "api"      # adjust if needed
           output_location:                 "build"    # adjust if needed
+
 
