@@ -10,7 +10,6 @@
     #output { margin-top: 20px; white-space: pre-wrap; }
     .error { color: #a00; font-weight: bold; }
     .success { color: #0a0; font-weight: bold; }
-    .loading { opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -22,125 +21,88 @@
   </div>
 
   <div id="api-buttons" style="margin-top:12px">
+    <button id="status-btn" disabled>Status VM</button>
     <button id="start-btn" disabled>Start VM</button>
     <button id="stop-btn" disabled>Stop VM</button>
-    <button id="status-btn" disabled>Status</button>
   </div>
 
   <div id="output" aria-live="polite"></div>
 
   <script>
-    // Replace with your Azure AD Group Object IDs
-    const USERS_GROUP_ID  = '570fe125-3503-4277-8757-65f55a9ba35f';
-    const ADMIN_GROUP_ID  = '08160b89-cbf1-4e7b-bb51-f243c61e9cd0';
-
-    // UI elements
     const loginBtn  = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
+    const statusBtn = document.getElementById('status-btn');
     const startBtn  = document.getElementById('start-btn');
     const stopBtn   = document.getElementById('stop-btn');
-    const statusBtn = document.getElementById('status-btn');
     const outputEl  = document.getElementById('output');
 
-    loginBtn.addEventListener('click',  () => window.location.href = '/.auth/login/aad');
-    logoutBtn.addEventListener('click', () => window.location.href = '/.auth/logout');
+    loginBtn.addEventListener('click',  () => location.href = '/login');
+    logoutBtn.addEventListener('click', () => location.href = '/logout');
 
-    function disableAll() {
-      startBtn.disabled = true;
-      stopBtn.disabled  = true;
-      statusBtn.disabled= true;
-    }
-
-    function showInfo(msg) {
+    function show(msg, klass) {
       outputEl.innerHTML = '';
       const div = document.createElement('div');
+      if (klass) div.className = klass;
       div.textContent = msg;
       outputEl.appendChild(div);
     }
 
-    function showSuccess(msg) {
-      outputEl.innerHTML = '';
-      const div = document.createElement('div');
-      div.className = 'success';
-      div.textContent = msg;
-      outputEl.appendChild(div);
-    }
-
-    function showError(msg) {
-      outputEl.innerHTML = '';
-      const div = document.createElement('div');
-      div.className = 'error';
-      div.textContent = msg;
-      outputEl.appendChild(div);
-    }
-
-    function showJson(obj) {
-      outputEl.innerHTML = '';
-      const pre = document.createElement('pre');
-      pre.textContent = JSON.stringify(obj, null, 2);
-      outputEl.appendChild(pre);
-    }
-
-    function showLoginState() {
-      loginBtn.style.display  = 'inline-block';
-      logoutBtn.style.display = 'none';
-      disableAll();
-      showInfo('Please log in to use the app.');
+    function setButtons({ isUser, isAdmin }) {
+      statusBtn.disabled = !(isUser || isAdmin);
+      startBtn.disabled  = !(isUser || isAdmin);
+      stopBtn.disabled   = !isAdmin;
     }
 
     async function checkAuth() {
       try {
         const res = await fetch('/.auth/me', { credentials: 'same-origin' });
-
-        // If SWA redirects to login, show login state
-        if (res.redirected && res.url.includes('/.auth/login')) {
-          showLoginState();
+        if (res.redirected) {
+          show('Please log in to use the app.', 'error');
+          return;
+        }
+        const payload = await res.json();
+        const principal = payload.clientPrincipal;
+        if (!principal) {
+          show('Please log in to use the app.', 'error');
           return;
         }
 
-        const json = await res.json();
-        let principal;
-
-        // Support both array (old Functions) and object (SWA v2)
-        if (Array.isArray(json) && json.length > 0) {
-          principal = json[0];
-        } else if (json.clientPrincipal) {
-          principal = json.clientPrincipal;
-        } else {
-          showLoginState();
-          return;
-        }
-
-        // Successfully signed in
         loginBtn.style.display  = 'none';
         logoutBtn.style.display = 'inline-block';
+        show(`✅ Logged in as ${principal.userDetails}`, 'success');
 
-        // Extract groups & roles
-        const claims   = principal.claims || principal.userClaims || [];
-        const groupIds = claims
-          .filter(c => c.typ === 'groups' || c.type === 'groups')
-          .map(c => c.val || c.value)
-          .filter(Boolean);
-        const roles    = Array.isArray(principal.userRoles) ? principal.userRoles : [];
-
-        const isAdmin = groupIds.includes(ADMIN_GROUP_ID) || roles.includes('AVD_Administrators');
-        const isUser  = groupIds.includes(USERS_GROUP_ID)  || roles.includes('AVD_Users');
-
-        startBtn.disabled  = !(isUser || isAdmin);
-        stopBtn.disabled   = !isAdmin;
-        statusBtn.disabled = !(isUser || isAdmin);
-
-        const userText = principal.userDetails || principal.userId || 'signed-in user';
-        showSuccess(`✅ Logged in as ${userText}`);
+        const groupIds = principal.userRoles.concat(
+          (principal.userClaims || []).filter(c=>c.typ==='groups').map(c=>c.val)
+        );
+        setButtons({
+          isUser:  groupIds.includes('570fe125-3503-4277-8757-65f55a9ba35f'),
+          isAdmin: groupIds.includes('08160b89-cbf1-4e7b-bb51-f243c61e9cd0')
+        });
 
       } catch (err) {
-        console.error('checkAuth error', err);
-        showLoginState();
-        showError('Error checking authentication: ' + (err.message || err));
+        console.error(err);
+        show('Error checking authentication.', 'error');
       }
     }
 
-    // API call helper unchanged...
+    async function callApi(path, method='GET') {
+      show('Loading...');
+      try {
+        const res = await fetch(`/api/avd/${path}`, {
+          method,
+          credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || JSON.stringify(data));
+        show(JSON.stringify(data, null, 2));
+      } catch (err) {
+        show(err.message, 'error');
+      }
+    }
+
+    statusBtn.addEventListener('click', () => callApi('status'));
+    startBtn .addEventListener('click', () => callApi('start', 'POST'));
+    stopBtn  .addEventListener('click', () => callApi('stop',  'POST'));
 
     checkAuth();
   </script>
