@@ -15,6 +15,10 @@ jobs:
       # 1. Get your code
       - name: Checkout repository
         uses: actions/checkout@v3
+      - name: Debug folder structure
+        run: |
+         pwd
+         ls -R .
 
       # 2. Pick a Node version
       - name: Setup Node.js
@@ -50,3 +54,4 @@ jobs:
           app_location:                    "/"       # your front-end lives at repo root
           api_location:                    "api"     # your Functions/API folder
           output_location:                 "build"   # where your front-end build outputs
+
