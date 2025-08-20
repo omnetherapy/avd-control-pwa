@@ -1,18 +1,9 @@
 {
-  "name": "api",
+  "name": "avd-api",
   "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18"
-  },
+  "type": "commonjs",
   "dependencies": {
-    "@azure/identity": "^4.11.1",
-    "@azure/arm-compute": "^23.0.0",
-    "axios": "^1.11.0"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "@azure/identity": "^2.0.0",
+    "@azure/arm-compute": "^19.0.0"
   }
 }
