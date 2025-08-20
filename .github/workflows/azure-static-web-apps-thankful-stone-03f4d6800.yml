@@ -20,8 +20,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Debug: print cwd and full file tree
+      - name: Debug print cwd and full file tree
         run: |
           echo ">> PWD: $(pwd)"
           echo ">> Listing everything under here:"
           ls -R .
+
