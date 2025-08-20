@@ -13,13 +13,13 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install front-end deps
-        run: npm ci --prefix avd-control-pwa
+        run: npm install --prefix avd-control-pwa
 
       - name: Build front-end
         run: npm run build --prefix avd-control-pwa
 
       - name: Install API deps
-        run: npm ci --prefix avd-control-pwa/api
+        run: npm install --prefix avd-control-pwa/api
 
       - name: Build API
         run: npm run build --prefix avd-control-pwa/api
@@ -33,3 +33,4 @@ jobs:
           app_location:                    "avd-control-pwa"
           api_location:                    "avd-control-pwa/api"
           output_location:                 "avd-control-pwa/build"
+
