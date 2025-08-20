@@ -1,28 +1,23 @@
 # .github/workflows/azure-static-web-apps.yml
-name: Azure Static Web Apps CI/CD with Debug
+name: Azure Static Web Apps CI/CD
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - closed
+    branches: [ main ]
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Debug print cwd and full file tree
-        run: |
-          echo ">> PWD: $(pwd)"
-          echo ">> Listing everything under here:"
-          ls -R .
-
+      - name: Deploy to Azure Static Web Apps
+        uses: azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
+          repo_token:                      ${{ secrets.GITHUB_TOKEN }}
+          action:                          upload
+          app_location:                    "/"     # root contains your index.html
+          api_location:                    "api"   # your Azure Functions folder
+          output_location:                 ""      # upload static files directly
