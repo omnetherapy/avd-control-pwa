@@ -1,41 +1,28 @@
-# .github/workflows/azure-static-web-apps.yml
-name: Azure Static Web Apps CI/CD
+name: Build and Deploy SWA
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
+    branches: [ main ]
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'      # adjust to match your project
-
-      - name: Install front-end dependencies
-        working-directory: avd-control-pwa
-        run: npm ci
+      - name: Install front-end deps
+        run: npm ci --prefix avd-control-pwa
 
       - name: Build front-end
-        working-directory: avd-control-pwa
-        run: npm run build
+        run: npm run build --prefix avd-control-pwa
 
-      - name: Install API dependencies
-        working-directory: avd-control-pwa/api
-        run: npm ci
+      - name: Install API deps
+        run: npm ci --prefix avd-control-pwa/api
 
       - name: Build API
-        working-directory: avd-control-pwa/api
-        run: npm run build        # omit or change if you don’t have a build step
+        run: npm run build --prefix avd-control-pwa/api
 
       - name: Deploy to Azure Static Web Apps
         uses: azure/static-web-apps-deploy@v1
@@ -43,6 +30,6 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "avd-control-pwa"      # front-end folder
-          api_location:                    "avd-control-pwa/api"  # your Functions/API code
-          output_location:                 "avd-control-pwa/build" # where front-end build outputs
+          app_location:                    "avd-control-pwa"
+          api_location:                    "avd-control-pwa/api"
+          output_location:                 "avd-control-pwa/build"
