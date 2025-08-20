@@ -1,32 +1,20 @@
 {
   "routes": [
-    {
-      "route": "/api/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/",
-      "allowedRoles": ["authenticated"]
-    }
+    { "route": "/api/*", "allowedRoles": ["authenticated"] },
+    { "route": "/",     "allowedRoles": ["authenticated"] }
   ],
   "responseOverrides": {
-    "401": {
-      "redirect": "/.auth/login/aad",
-      "statusCode": 302
-    },
-    "403": {
-      "redirect": "/access-denied",
-      "statusCode": 302
-    }
+    "401": { "redirect": "/.auth/login/aad", "statusCode": 302 },
+    "403": { "redirect": "/access-denied",   "statusCode": 302 }
   },
   "auth": {
     "identityProviders": {
       "azureActiveDirectory": {
         "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/6df6f43e-3d04-4dcc-8210-7bb54b3cd141/v2.0"
+          "openIdIssuer": "https://login.microsoftonline.com/6df6f43e-3d04-4dcc-8210-7bb54b3cd141/v2.0",
           "allowedGroupIds": [
-          "570fe125-3503-4277-8757-65f55a9ba35f",
-          "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"
+            "570fe125-3503-4277-8757-65f55a9ba35f",
+            "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"
           ]
         }
       }
@@ -34,13 +22,7 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": [
-      "/images/*",
-      "/css/*",
-      "/js/*",
-      "/favicon.ico",
-      "/static/*"
-    ]
+    "exclude": ["/images/*","/css/*","/js/*","/favicon.ico","/static/*"]
   },
   "globalHeaders": {
     "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
