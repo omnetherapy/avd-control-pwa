@@ -26,7 +26,7 @@ jobs:
             {
               "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
               "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
-              "tenantId":     "${{ secrets.AZURE_TENANT_ID }}"
+              "tenantId":     "${{ secrets.AZURE_TENANT_ID }}",
               "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             }
 
@@ -50,5 +50,6 @@ jobs:
           app_location:               "/"       # Adjust if your app lives in a subfolder
           api_location:               "api"     # Or the folder where your Azure Functions live
           output_location:            "build"   # Your production build folder
+
 
 
