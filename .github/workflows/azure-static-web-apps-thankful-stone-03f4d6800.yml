@@ -1,13 +1,21 @@
 # .github/workflows/azure-static-web-apps.yml
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (Static Only)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -15,9 +23,9 @@ jobs:
       - name: Deploy to Azure Static Web Apps
         uses: azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "/"     # root contains your index.html
-          api_location:                    "api"   # your Azure Functions folder
-          output_location:                 ""      # upload static files directly
+          app_location:                    "/"     # your index.html lives here
+          api_location:                    "api"   # your Functions/API folder
+          output_location:                 ""      # deploy root as-is
