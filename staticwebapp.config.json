@@ -22,10 +22,15 @@
   "auth": {
     "identityProviders": {
       "azureActiveDirectory": {
-        "validation": {
-          "allowedGroupIds": [
-            "570fe125-3503-4277-8757-65f55a9ba35f",
-            "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"
+       "registration": {
+        "clientIdSettingName":  "82dabc4a-7c66-43b5-aa50-5ab8a49fefd1",
+        "clientSecretSettingName":"7630194f-3454-4295-ab9f-bfb3b07f24c8",
+        "openIdIssuer":         "https://login.microsoftonline.com/6df6f43e-3d04-4dcc-8210-7bb54b3cd141/v2.0"
+      },
+      "validation": {
+        "allowedGroupIds": [
+          "570fe125-3503-4277-8757-65f55a9ba35f",
+          "08160b89-cbf1-4e7b-bb51-f243c61e9cd0"
           ]
         }
       }
