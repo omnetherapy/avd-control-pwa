@@ -16,14 +16,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2) Debug: where are we, and what’s here?
+      # 2) Debug: where are we, and what's here?
       - name: Debug: print cwd and full file tree
         run: |
           echo ">> PWD: $(pwd)"
           echo ">> Listing everything under here:"
           ls -R .
 
-      # 3) Debug: locate all package.json files
+      # 3) Debug: find all package.json files
       - name: Debug: find package.json
         run: |
           echo ">> Searching for package.json in this repo:"
@@ -50,7 +50,7 @@ jobs:
         run: |
           echo ">> node_modules at root:"
           ls -l node_modules | head -n 20
-          echo ">> root package.json content snippet:"
+          echo ">> root package.json snippet:"
           head -n 20 package.json
         working-directory: .
 
@@ -79,12 +79,12 @@ jobs:
         run: |
           echo ">> api/node_modules:"
           ls -l api/node_modules | head -n 20
-          echo ">> api/package.json snippet:"
+          echo ">> api package.json snippet:"
           head -n 20 api/package.json
         working-directory: .
 
       - name: Build API
-        run: npm run build    # remove if you don’t have a build step
+        run: npm run build   # remove this line if your API has no build step
         working-directory: api
 
       - name: Debug after API build
@@ -104,6 +104,6 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "/"       # front-end at repo root
-          api_location:                    "api"     # your Functions/API folder
-          output_location:                 "build"   # front-end output folder
+          app_location:                    "/"    # your front-end lives at repo root
+          api_location:                    "api"  # your API lives under ./api
+          output_location:                 "build"
