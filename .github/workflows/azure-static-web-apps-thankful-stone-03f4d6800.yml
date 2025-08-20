@@ -3,45 +3,50 @@ name: Azure Static Web Apps CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
+    types: [ opened, synchronize, reopened, closed ]
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Get your code
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 2. Pick a Node version
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '16'      # or whatever you target
 
-      # FRONT-END
+      # 3. Front-end: install + build from repo root
       - name: Install front-end dependencies
-        working-directory: avd-control-pwa
         run: npm install
+        working-directory: .
 
       - name: Build front-end
-        working-directory: avd-control-pwa
         run: npm run build
+        working-directory: .
 
-      # API
+      # 4. API: install + build from api/ folder
       - name: Install API dependencies
-        run: npm install --prefix avd-control-pwa/api
+        run: npm install
+        working-directory: api
 
       - name: Build API
-        run: npm run build --prefix avd-control-pwa/api
+        run: npm run build          # remove if you don’t have an API build step
+        working-directory: api
 
+      # 5. Push to Azure Static Web Apps
       - name: Deploy to Azure Static Web Apps
         uses: azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "avd-control-pwa"
-          api_location:                    "avd-control-pwa/api"
-          output_location:                 "avd-control-pwa/build"
+          app_location:                    "/"       # your front-end lives at repo root
+          api_location:                    "api"     # your Functions/API folder
+          output_location:                 "build"   # where your front-end build outputs
