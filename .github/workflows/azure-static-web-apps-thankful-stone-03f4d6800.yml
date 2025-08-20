@@ -1,25 +1,16 @@
-name: Azure Static Web Apps CI/CD (OIDC)
+# .github/workflows/azure-static-web-apps.yml
+name: Azure Static Web Apps CI/CD
 
 on:
   push:
     branches:
       - main
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-
-permissions:
-  contents: read
-  id-token: write
+    types: [opened, synchronize, reopened, closed]
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-
-    # This must match the environment you configured in Azure AD federated credentials
-    environment: avd-control-pwa
 
     steps:
       - name: Checkout repository
@@ -28,30 +19,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16.x'
+          node-version: '16'      # adjust to match your project
 
-      - name: Azure Login (OIDC)
-        uses: azure/login@v1
-        with:
-          use-github-actions-identity: true
-          tenant-id:              ${{ secrets.AZURE_TENANT_ID }}
-          client-id:              ${{ secrets.AZURE_CLIENT_ID }}
-          allow-no-subscriptions: true
+      - name: Install front-end dependencies
+        working-directory: avd-control-pwa
+        run: npm ci
 
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Application
+      - name: Build front-end
+        working-directory: avd-control-pwa
         run: npm run build
+
+      - name: Install API dependencies
+        working-directory: avd-control-pwa/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: avd-control-pwa/api
+        run: npm run build        # omit or change if you don’t have a build step
 
       - name: Deploy to Azure Static Web Apps
         uses: azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "/"        # adjust if needed
-          api_location:                    "api"      # adjust if needed
-          output_location:                 "build"    # adjust if needed
-
-
+          app_location:                    "avd-control-pwa"      # front-end folder
+          api_location:                    "avd-control-pwa/api"  # your Functions/API code
+          output_location:                 "avd-control-pwa/build" # where front-end build outputs
