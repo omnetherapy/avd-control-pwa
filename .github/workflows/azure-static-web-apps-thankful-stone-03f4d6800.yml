@@ -1,5 +1,5 @@
 # .github/workflows/azure-static-web-apps.yml
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD with Debug
 
 on:
   push:
@@ -12,46 +12,98 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Get your code
+      # 1) Check out your code
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Debug folder structure
-        run: |
-         pwd
-         ls -R .
 
-      # 2. Pick a Node version
+      # 2) Debug: where are we, and what’s here?
+      - name: Debug: print cwd and full file tree
+        run: |
+          echo ">> PWD: $(pwd)"
+          echo ">> Listing everything under here:"
+          ls -R .
+
+      # 3) Debug: locate all package.json files
+      - name: Debug: find package.json
+        run: |
+          echo ">> Searching for package.json in this repo:"
+          find . -type f -name package.json
+
+      # 4) Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'      # or whatever you target
+          node-version: '16'
 
-      # 3. Front-end: install + build from repo root
+      # 5) Front-end: install + build from repo root
+      - name: Debug before front-end install
+        run: |
+          echo ">> about to install at repo root"
+          ls -l .
+        working-directory: .
+
       - name: Install front-end dependencies
         run: npm install
+        working-directory: .
+
+      - name: Debug after front-end install
+        run: |
+          echo ">> node_modules at root:"
+          ls -l node_modules | head -n 20
+          echo ">> root package.json content snippet:"
+          head -n 20 package.json
         working-directory: .
 
       - name: Build front-end
         run: npm run build
         working-directory: .
 
-      # 4. API: install + build from api/ folder
+      - name: Debug after front-end build
+        run: |
+          echo ">> build folder contents:"
+          ls -R build | head -n 50
+        working-directory: .
+
+      # 6) API: install + build under ./api
+      - name: Debug before API install
+        run: |
+          echo ">> about to install in ./api"
+          ls -R api
+        working-directory: .
+
       - name: Install API dependencies
         run: npm install
         working-directory: api
 
+      - name: Debug after API install
+        run: |
+          echo ">> api/node_modules:"
+          ls -l api/node_modules | head -n 20
+          echo ">> api/package.json snippet:"
+          head -n 20 api/package.json
+        working-directory: .
+
       - name: Build API
-        run: npm run build          # remove if you don’t have an API build step
+        run: npm run build    # remove if you don’t have a build step
         working-directory: api
 
-      # 5. Push to Azure Static Web Apps
+      - name: Debug after API build
+        run: |
+          if [ -d api/build ]; then
+            echo ">> api/build contents:"
+            ls -R api/build
+          else
+            echo ">> no api/build folder found"
+          fi
+        working-directory: .
+
+      # 7) Deploy to Azure Static Web Apps
       - name: Deploy to Azure Static Web Apps
         uses: azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_STONE_03F4D6800 }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token:                      ${{ secrets.GITHUB_TOKEN }}
           action:                          upload
-          app_location:                    "/"       # your front-end lives at repo root
+          app_location:                    "/"       # front-end at repo root
           api_location:                    "api"     # your Functions/API folder
-          output_location:                 "build"   # where your front-end build outputs
-
+          output_location:                 "build"   # front-end output folder
