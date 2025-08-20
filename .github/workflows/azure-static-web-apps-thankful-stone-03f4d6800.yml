@@ -33,9 +33,9 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v1
         with:
+          use-github-actions-identity: true
           tenant-id:              ${{ secrets.AZURE_TENANT_ID }}
           client-id:              ${{ secrets.AZURE_CLIENT_ID }}
-          auth-type:              oidc
           allow-no-subscriptions: true
 
       - name: Install Dependencies
@@ -53,3 +53,4 @@ jobs:
           app_location:                    "/"        # adjust if needed
           api_location:                    "api"      # adjust if needed
           output_location:                 "build"    # adjust if needed
+
