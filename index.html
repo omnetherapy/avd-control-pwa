@@ -71,14 +71,12 @@
         logoutBtn.style.display = 'inline-block';
         show(`✅ Logged in as ${principal.userDetails}`, 'success');
 
-        const groupIds = principal.userRoles.concat(
-          (principal.userClaims || []).filter(c=>c.typ==='groups').map(c=>c.val)
-        );
-        setButtons({
-          isUser:  groupIds.includes('570fe125-3503-4277-8757-65f55a9ba35f'),
-          isAdmin: groupIds.includes('08160b89-cbf1-4e7b-bb51-f243c61e9cd0')
-        });
+    const roles = payload.clientPrincipal.userRoles;
 
+  setButtons({
+  isUser:  roles.includes('User'),
+  isAdmin: roles.includes('Admin')
+  });
       } catch (err) {
         console.error(err);
         show('Error checking authentication.', 'error');
