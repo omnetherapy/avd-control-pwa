@@ -1,44 +1,17 @@
 {
   "routes": [
-    {
-      "route": "/login",
-      "redirect": "/.auth/login/aad?post_login_redirect_url=/"
-    },
-    {
-      "route": "/logout",
-      "redirect": "/.auth/logout?post_logout_redirect_url=/"
-    },
-    {
-      "route": "/api/avd/*",
-      "allowedRoles": [ "authenticated" ]
-    },
-    {
-      "route": "/",
-      "allowedRoles": [ "authenticated" ]
-    }
+    { "route": "/login",
+      "redirect": "/.auth/login/aad?post_login_redirect_url=/" },
+    { "route": "/logout",
+      "redirect": "/.auth/logout?post_logout_redirect_url=/" },
+    { "route": "/api/avd/*",
+      "allowedRoles": ["authenticated"] },
+    { "route": "/",
+      "rewrite": "/index.html",
+      "allowedRoles": ["authenticated"] }
   ],
-  "responseOverrides": {
-    "401": {
-      "redirect": "/login",
-      "statusCode": 302
-    },
-    "403": {
-      "redirect": "/access-denied",
-      "statusCode": 302
-    }
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": [
-      "/.auth/*",
-      "/api/*",
-      "/images/*",
-      "/css/*",
-      "/js/*",
-      "/static/*"
-    ]
-  },
-  "mimeTypes": {
-    ".json": "application/json"
+    "exclude": [ "/.auth/*", "/api/*" ]
   }
 }
