@@ -1,104 +1,38 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>AVD Control Service</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #auth-buttons button, #api-buttons button { margin-right: 10px; margin-top: 5px; }
-    #output { margin-top: 20px; white-space: pre-wrap; }
-    .error { color: #a00; font-weight: bold; }
-    .success { color: #0a0; font-weight: bold; }
-  </style>
-</head>
-<body>
-  <h1>AVD Control Service</h1>
+<script>
+  // … lookup DOM elements & login/logout setup …
 
-  <div id="auth-buttons">
-    <button id="login-btn">Login</button>
-    <button id="logout-btn" style="display:none">Logout</button>
-  </div>
+  function setButtons({ isUser, isAdmin }) {
+    statusBtn.disabled = !(isUser || isAdmin);
+    startBtn.disabled  = !(isUser || isAdmin);
+    stopBtn.disabled   = !isAdmin;
+  }
 
-  <div id="api-buttons" style="margin-top:12px">
-    <button id="status-btn" disabled>Status VM</button>
-    <button id="start-btn"  disabled>Start VM</button>
-    <button id="stop-btn"   disabled>Stop VM</button>
-  </div>
-
-  <div id="output" aria-live="polite"></div>
-
-  <script>
-    const loginBtn  = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const statusBtn = document.getElementById('status-btn');
-    const startBtn  = document.getElementById('start-btn');
-    const stopBtn   = document.getElementById('stop-btn');
-    const outputEl  = document.getElementById('output');
-
-    loginBtn.addEventListener('click',  () => location.href = '/login');
-    logoutBtn.addEventListener('click', () => location.href = '/logout');
-
-    function show(msg, klass) {
-      outputEl.innerHTML = '';
-      const div = document.createElement('div');
-      if (klass) div.className = klass;
-      div.textContent = msg;
-      outputEl.appendChild(div);
+  async function checkAuth() {
+    const res = await fetch('/.auth/me', { credentials: 'same-origin' });
+    if (res.redirected) {
+      show('Please log in to use the app.', 'error');
+      return;
+    }
+    const { clientPrincipal: principal } = await res.json();
+    if (!principal) {
+      show('Please log in to use the app.', 'error');
+      return;
     }
 
-    function setButtons({ isUser, isAdmin }) {
-      statusBtn.disabled = !(isUser || isAdmin);
-      startBtn.disabled  = !(isUser || isAdmin);
-      stopBtn.disabled   = !isAdmin;
-    }
+    loginBtn.style.display  = 'none';
+    logoutBtn.style.display = 'inline-block';
+    show(`✅ Logged in as ${principal.userDetails}`, 'success');
 
-    async function checkAuth() {
-      const res = await fetch('/.auth/me', { credentials: 'same-origin' });
-      if (res.redirected) {
-        show('Please log in to use the app.', 'error');
-        return;
-      }
+    // NEW: just check App Role values
+    const roles = Array.isArray(principal.userRoles)
+      ? principal.userRoles.map(r => r.toLowerCase())
+      : [];
 
-      const { clientPrincipal: principal } = await res.json();
-      if (!principal) {
-        show('Please log in to use the app.', 'error');
-        return;
-      }
+    setButtons({
+      isUser:  roles.includes('user'),
+      isAdmin: roles.includes('admin')
+    });
+  }
 
-      loginBtn.style.display  = 'none';
-      logoutBtn.style.display = 'inline-block';
-      show(`✅ Logged in as ${principal.userDetails}`, 'success');
-
-      // NEW: check for the App Role *values* "User" & "Admin"
-      const roles = Array.isArray(principal.userRoles)
-        ? principal.userRoles
-        : [];
-
-      setButtons({
-        isUser:  roles.includes('User'),
-        isAdmin: roles.includes('Admin')
-      });
-    }
-
-    async function callApi(path, method='GET') {
-      show('Loading...');
-      const res = await fetch(`/api/avd/${path}`, {
-        method, credentials: 'same-origin'
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        show(payload.error || JSON.stringify(payload), 'error');
-      } else {
-        show(JSON.stringify(payload, null, 2));
-      }
-    }
-
-    statusBtn.addEventListener('click', () => callApi('status'));
-    startBtn .addEventListener('click', () => callApi('start', 'POST'));
-    stopBtn  .addEventListener('click', () => callApi('stop',  'POST'));
-
-    checkAuth();
-  </script>
-</body>
-</html>
+  // … callApi, event listeners, checkAuth() …
+</script>
