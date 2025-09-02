@@ -25,9 +25,9 @@ module.exports = async function (context, req) {
   }
 
   // 2) Authorize
-  const groups  = extractGroupIdsFromPrincipal(principal);
-  const isAdmin = groups.has(ADMIN_GROUP_ID);
-  const isUser  = groups.has(USERS_GROUP_ID);
+const roles   = principal.userRoles || [];
+const isAdmin = roles.includes('Admin');
+const isUser  = roles.includes('User');
 
   // 3) Determine action
   const path   = context.bindingData.path?.split('/')[0]?.toLowerCase() || '';
