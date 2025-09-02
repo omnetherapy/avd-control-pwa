@@ -1,12 +1,6 @@
-// util.js
-
-/**
- * Decode the x-ms-client-principal header into a JSON object
- */
 function getClientPrincipal(req) {
   const header = req.headers['x-ms-client-principal'];
   if (!header) return null;
-
   try {
     const decoded = Buffer.from(header, 'base64').toString('utf8');
     return JSON.parse(decoded);
@@ -15,18 +9,13 @@ function getClientPrincipal(req) {
   }
 }
 
-/**
- * Extract App Role values (e.g. "User", "Admin") into a Set
- */
-function extractRoles(principal) {
-  const roles = Array.isArray(principal?.userRoles)
-    ? principal.userRoles
-    : [];
-
-  return new Set(roles);
+function extractGroupIdsFromPrincipal(principal) {
+  const claims = principal.userClaims || principal.claims || [];
+  return new Set(
+    claims
+      .filter(c => c.typ === 'groups' || c.type === 'groups')
+      .map(c => c.val || c.value)
+  );
 }
 
-module.exports = {
-  getClientPrincipal,
-  extractRoles
-};
+module.exports = { getClientPrincipal, extractGroupIdsFromPrincipal };
