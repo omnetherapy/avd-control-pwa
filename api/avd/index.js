@@ -1,4 +1,5 @@
-const { getClientPrincipal }            = require('./utils');
+// /api/avd/index.js
+const { getClientPrincipal, extractRoles } = require('./utils');
 const { startAvd, stopAvd, getAvdStatus } = require('./avdService');
 
 const ACTION_CONFIG = {
@@ -12,20 +13,15 @@ function jsonResponse(ctx, status, body) {
 }
 
 module.exports = async function (context, req) {
-  context.log.info('AVD invoked', { method: req.method, url: req.url });
-
-  // 1. Authenticate
   const principal = getClientPrincipal(req);
   if (!principal?.userId) {
     return jsonResponse(context, 401, { error: 'Not authenticated' });
   }
 
-  // 2. Authorize by App Role *value* ("User" or "Admin")
-  const roles   = Array.isArray(principal.userRoles) ? principal.userRoles : [];
-  const isUser  = roles.includes('User');
-  const isAdmin = roles.includes('Admin');
+  const roles   = extractRoles(principal);
+  const isUser  = roles.has('user');
+  const isAdmin = roles.has('admin');
 
-  // 3. Route dispatch
   const action = context.bindingData.path?.split('/')[0].toLowerCase() || '';
   const method = req.method.toUpperCase();
 
@@ -38,25 +34,18 @@ module.exports = async function (context, req) {
     });
   }
 
-  // 4. Execute
   try {
     let result;
     if (action === 'status') {
-      if (!isUser && !isAdmin) {
-        return jsonResponse(context, 403, { error: 'Access denied' });
-      }
+      if (!isUser && !isAdmin) return jsonResponse(context, 403, { error: 'Access denied' });
       result = await getAvdStatus();
 
     } else if (action === 'start') {
-      if (!isUser && !isAdmin) {
-        return jsonResponse(context, 403, { error: 'Access denied' });
-      }
+      if (!isUser && !isAdmin) return jsonResponse(context, 403, { error: 'Access denied' });
       result = await startAvd();
 
     } else { // stop
-      if (!isAdmin) {
-        return jsonResponse(context, 403, { error: 'Admins only' });
-      }
+      if (!isAdmin) return jsonResponse(context, 403, { error: 'Admins only' });
       result = await stopAvd();
     }
 
