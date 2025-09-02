@@ -1,21 +1,27 @@
+// /api/avd/utils.js
+
+/**
+ * Decode the x-ms-client-principal header
+ */
 function getClientPrincipal(req) {
   const header = req.headers['x-ms-client-principal'];
   if (!header) return null;
   try {
-    const decoded = Buffer.from(header, 'base64').toString('utf8');
-    return JSON.parse(decoded);
+    return JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
   } catch {
     return null;
   }
 }
 
-function extractGroupIdsFromPrincipal(principal) {
-  const claims = principal.userClaims || principal.claims || [];
+/**
+ * Pull out App Role values (e.g. "User","Admin","authenticated")
+ */
+function extractRoles(principal) {
   return new Set(
-    claims
-      .filter(c => c.typ === 'groups' || c.type === 'groups')
-      .map(c => c.val || c.value)
+    Array.isArray(principal?.userRoles)
+      ? principal.userRoles.map(r => r.toLowerCase())
+      : []
   );
 }
 
-module.exports = { getClientPrincipal, extractGroupIdsFromPrincipal };
+module.exports = { getClientPrincipal, extractRoles };
