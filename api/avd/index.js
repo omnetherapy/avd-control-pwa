@@ -1,8 +1,9 @@
 const { getClientPrincipal, extractGroupIdsFromPrincipal } = require('./utils');
 const { startAvd, stopAvd, getAvdStatus } = require('./avdService');
 
-const USERS_GROUP_ID = '570fe125-3503-4277-8757-65f55a9ba35f';
-const ADMIN_GROUP_ID = '08160b89-cbf1-4e7b-bb51-f243c61e9cd0';
+const roles   = principal.userRoles || [];
+const isAdmin = roles.includes('Admin');
+const isUser  = roles.includes('User');
 
 const ACTION_CONFIG = {
   start:  { methods: ['POST'] },
