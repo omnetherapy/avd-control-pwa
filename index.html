@@ -1,38 +1,130 @@
-<script>
-  // … lookup DOM elements & login/logout setup …
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AVD Control</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    #message { margin-bottom: 1rem; display: none; }
+    #message.error { color: red; }
+    #message.success { color: green; }
+    button { margin-right: .5rem; }
+  </style>
+</head>
+<body>
+  <div id="message"></div>
 
-  function setButtons({ isUser, isAdmin }) {
-    statusBtn.disabled = !(isUser || isAdmin);
-    startBtn.disabled  = !(isUser || isAdmin);
-    stopBtn.disabled   = !isAdmin;
-  }
+  <button id="loginBtn">Log In</button>
+  <button id="logoutBtn" style="display:none;">Log Out</button>
+  <button id="statusBtn" disabled>Get Status</button>
+  <button id="startBtn"  disabled>Start AVD</button>
+  <button id="stopBtn"   disabled>Stop AVD</button>
 
-  async function checkAuth() {
-    const res = await fetch('/.auth/me', { credentials: 'same-origin' });
-    if (res.redirected) {
-      show('Please log in to use the app.', 'error');
-      return;
-    }
-    const { clientPrincipal: principal } = await res.json();
-    if (!principal) {
-      show('Please log in to use the app.', 'error');
-      return;
-    }
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Element references
+      const msg       = document.getElementById('message');
+      const loginBtn  = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const statusBtn = document.getElementById('statusBtn');
+      const startBtn  = document.getElementById('startBtn');
+      const stopBtn   = document.getElementById('stopBtn');
 
-    loginBtn.style.display  = 'none';
-    logoutBtn.style.display = 'inline-block';
-    show(`✅ Logged in as ${principal.userDetails}`, 'success');
+      // Show helper
+      function show(text, type = '') {
+        msg.textContent    = text;
+        msg.className      = type;
+        msg.style.display  = 'block';
+      }
 
-    // NEW: just check App Role values
-    const roles = Array.isArray(principal.userRoles)
-      ? principal.userRoles.map(r => r.toLowerCase())
-      : [];
+      // Role‐based button toggles
+      function setButtons({ isUser, isAdmin }) {
+        statusBtn.disabled = !(isUser || isAdmin);
+        startBtn.disabled  = !(isUser || isAdmin);
+        stopBtn.disabled   = !isAdmin;
+      }
 
-    setButtons({
-      isUser:  roles.includes('user'),
-      isAdmin: roles.includes('admin')
+      // Login / logout actions
+      loginBtn.addEventListener('click', () => {
+        window.location.href = '/.auth/login/aad?post_login_redirect_uri=/';
+      });
+      logoutBtn.addEventListener('click', () => {
+        window.location.href = '/.auth/logout?post_logout_redirect_uri=/';
+      });
+
+      // Call your Azure Function API
+      async function callApi(action, method = 'GET') {
+        const res = await fetch(`/api/avd/${action}`, {
+          method,
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error(`${action} failed: ${res.status}`);
+        return res.json();
+      }
+
+      // Wire up the AVD buttons
+      statusBtn.addEventListener('click', async () => {
+        try {
+          const { result } = await callApi('status');
+          show(`Status: ${result}`, 'success');
+        } catch (e) {
+          show(e.message, 'error');
+        }
+      });
+      startBtn.addEventListener('click', async () => {
+        try {
+          await callApi('start', 'POST');
+          show('AVD starting…', 'success');
+        } catch (e) {
+          show(e.message, 'error');
+        }
+      });
+      stopBtn.addEventListener('click', async () => {
+        try {
+          await callApi('stop', 'POST');
+          show('AVD stopping…', 'success');
+        } catch (e) {
+          show(e.message, 'error');
+        }
+      });
+
+      // Check authentication and roles
+      async function checkAuth() {
+        try {
+          const res = await fetch('/.auth/me', { credentials: 'same-origin' });
+          if (res.redirected) {
+            show('Please log in.', 'error');
+            return;
+          }
+          const { clientPrincipal: principal } = await res.json();
+          if (!principal) {
+            show('Please log in.', 'error');
+            return;
+          }
+
+          console.log('Principal:', principal);
+          loginBtn.style.display  = 'none';
+          logoutBtn.style.display = 'inline-block';
+          show(`✅ Logged in as ${principal.userDetails}`, 'success');
+
+          const roles = (principal.userRoles || [])
+            .map(r => r.toLowerCase());
+          console.log('Roles:', roles);
+
+          setButtons({
+            isUser:  roles.includes('user'),
+            isAdmin: roles.includes('admin')
+          });
+
+        } catch (err) {
+          console.error(err);
+          show('Auth check error—see console.', 'error');
+        }
+      }
+
+      // Start the flow
+      checkAuth();
     });
-  }
-
-  // … callApi, event listeners, checkAuth() …
-</script>
+  </script>
+</body>
+</html>
