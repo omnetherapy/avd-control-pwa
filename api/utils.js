@@ -1,7 +1,7 @@
 // /api/avd/utils.js
 
 /**
- * Decode the x-ms-client-principal header
+ * Decode the x-ms-client-principal header into a JSON object
  */
 function getClientPrincipal(req) {
   const header = req.headers['x-ms-client-principal'];
@@ -14,7 +14,7 @@ function getClientPrincipal(req) {
 }
 
 /**
- * Pull out App Role values (e.g. "User","Admin","authenticated")
+ * Return a Set of lower-cased App Role values (e.g. "user","admin")
  */
 function extractRoles(principal) {
   return new Set(
