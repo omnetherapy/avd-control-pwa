@@ -10,11 +10,11 @@
     },
     {
       "route": "/api/avd/*",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": [ "authenticated" ]
     },
     {
       "route": "/",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": [ "authenticated" ]
     }
   ],
   "responseOverrides": {
@@ -37,14 +37,6 @@
       "/js/*",
       "/static/*"
     ]
-  },
-  "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-    "Referrer-Policy": "no-referrer-when-downgrade",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block"
   },
   "mimeTypes": {
     ".json": "application/json"
