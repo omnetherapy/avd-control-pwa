@@ -8,51 +8,72 @@ const ACTION_CONFIG = {
   status: { methods: ['GET','POST'] }
 };
 
-function jsonResponse(ctx, status, body) {
-  ctx.res = { status, headers: { 'Content-Type': 'application/json' }, body };
-}
-
 module.exports = async function (context, req) {
+  // 1) Authenticate
   const principal = getClientPrincipal(req);
   if (!principal?.userId) {
-    return jsonResponse(context, 401, { error: 'Not authenticated' });
+    return {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: 'Not authenticated' }
+    };
   }
 
+  // 2) Authorize
   const roles   = extractRoles(principal);
   const isUser  = roles.has('user');
   const isAdmin = roles.has('admin');
 
-  const action = context.bindingData.path?.split('/')[0].toLowerCase() || '';
+  // 3) Validate action + method
+  const action = (context.bindingData.path || '').split('/')[0].toLowerCase();
   const method = req.method.toUpperCase();
-
-  if (!ACTION_CONFIG[action]) {
-    return jsonResponse(context, 404, { error: 'Invalid endpoint' });
+  const cfg    = ACTION_CONFIG[action];
+  if (!cfg) {
+    return { status: 404, headers: { 'Content-Type': 'application/json' },
+             body: { error: 'Invalid endpoint' } };
   }
-  if (!ACTION_CONFIG[action].methods.includes(method)) {
-    return jsonResponse(context, 405, {
-      error: `Method Not Allowed. Allowed: ${ACTION_CONFIG[action].methods.join(', ')}`
-    });
+  if (!cfg.methods.includes(method)) {
+    return { status: 405, headers: { 'Content-Type': 'application/json' },
+             body: { error: `Allowed: ${cfg.methods.join(', ')}` } };
   }
 
+  // 4) Execute and return
   try {
     let result;
     if (action === 'status') {
-      if (!isUser && !isAdmin) return jsonResponse(context, 403, { error: 'Access denied' });
+      if (!isUser && !isAdmin) {
+        return { status: 403, headers: { 'Content-Type': 'application/json' },
+                 body: { error: 'Access denied' } };
+      }
       result = await getAvdStatus();
 
     } else if (action === 'start') {
-      if (!isUser && !isAdmin) return jsonResponse(context, 403, { error: 'Access denied' });
+      if (!isUser && !isAdmin) {
+        return { status: 403, headers: { 'Content-Type': 'application/json' },
+                 body: { error: 'Access denied' } };
+      }
       result = await startAvd();
 
     } else { // stop
-      if (!isAdmin) return jsonResponse(context, 403, { error: 'Admins only' });
+      if (!isAdmin) {
+        return { status: 403, headers: { 'Content-Type': 'application/json' },
+                 body: { error: 'Admins only' } };
+      }
       result = await stopAvd();
     }
 
-    return jsonResponse(context, 200, { success: true, action, result });
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: { success: true, action, result }
+    };
 
   } catch (err) {
     context.log.error(err);
-    return jsonResponse(context, 500, { error: err.message || 'Internal Server Error' });
+    return {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: err.message || 'Internal Server Error' }
+    };
   }
 };
