@@ -72,8 +72,16 @@ module.exports = async function (context, req) {
     context.log.error(err);
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: { error: err.message || 'Internal Server Error' }
+      // In /api/avd/index.js, inside your catch:
+return {
+  status: 500,
+  headers: { 'Content-Type': 'application/json' },
+  body: { 
+    error: err.message || 'Internal Server Error',
+    stack: err.stack
+  }
+};
+}
     };
   }
 };
